@@ -45,15 +45,13 @@ public class Simulator extends Manager {
 		
 		setTime(0);
 		
-		if(userControl != FailureLvl.EVERYTHING){
-			if(seed == null){
-				this.seed = System.currentTimeMillis();
-			}else{
-				this.seed = seed;
-			}
-			System.out.println("Starting simulation with seed: " + this.seed);
-			randNumGen = new Random(this.seed);
+		if(seed == null){
+			this.seed = System.currentTimeMillis();
+		}else{
+			this.seed = seed;
 		}
+		System.out.println("Starting simulation with seed: " + this.seed);
+		randNumGen = new Random(this.seed);
 		
 		waitingTOs = new ArrayList<Timeout>();
 		inTransitMsgs = new ArrayList<Packet>();

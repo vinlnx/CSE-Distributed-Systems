@@ -24,7 +24,7 @@ public class MessageLayer {
 	private static void usage() {
 		System.out.println("Usage:  java MessageLayer <simulate> <nodeclass> [-R{0|1|2|3|4} [seed]] [-c commandfile]\n" + 
 				"or\n" + 
-				"java MessageLayer <emulate> <nodeclass> <trawler host name> <trawler port> <local port to use> [-R{0|1|2|3|4} [seed]]\n\n" +          
+				"java MessageLayer <emulate> <nodeclass> <trawler host name> <trawler port> <local port to use> [-R{0|1|2|3|4} [seed]] [-c commandfile]\n\n" +          
 				"Arguments in <> are required and arguments in [] are optional.\n" +  
 				"command file is a file with commands for a node");
 	}
@@ -33,7 +33,7 @@ public class MessageLayer {
 	 * The main method. Entry point to start a Manager
 	 */
 	public static void main(String[] args) {
-		if(args.length < 3) {
+		if(args.length < 2) {
 			System.err.println("Missing arguments");
 			usage();
 			return;
@@ -102,7 +102,7 @@ public class MessageLayer {
 				}
 
 			}else if(args[0].equals("emulate")) {
-				if(args.length < 4) {
+				if(args.length < 5) {
 					System.err.println("Missing arguments to emulator");
 					usage();
 					return;
@@ -115,7 +115,7 @@ public class MessageLayer {
 				String commandFile = null;
 				Long seed = null;
 
-				for(int i = 3; i < args.length; ++i){
+				for(int i = 5; i < args.length; ++i){
 					if(args[i].charAt(0) == '-'){
 						if(args[i].charAt(1) == 'R'){
 							if(args[i].substring(1).equals("R0")){

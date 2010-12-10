@@ -30,6 +30,7 @@ public class Emulator extends Manager {
 
 	public Emulator(Class<? extends Node> nodeImpl, String trawlerName, int trawlerPort, int localUDPPort, Long seed) throws IOException, IllegalArgumentException{
 		super(nodeImpl);
+		
 		setParser(new EmulationCommandsParser());
 		
 		trawler = new Socket(trawlerName, trawlerPort);
@@ -48,15 +49,16 @@ public class Emulator extends Manager {
 			throw new IllegalArgumentException("Illegal local port " + localUDPPort);
 		}
 		
-		if(userControl != FailureLvl.EVERYTHING){
-			if(seed == null){
-				this.seed = System.currentTimeMillis();
-			}else{
-				this.seed = seed;
-			}
-			System.out.println("Starting simulation with seed: " + this.seed);
-			randNumGen = new Random(this.seed);
+		server = new EmulatedNodeServer(udpSocket);
+		server.start();
+		
+		if(seed == null){
+			this.seed = System.currentTimeMillis();
+		}else{
+			this.seed = seed;
 		}
+		System.out.println("Starting simulation with seed: " + this.seed);
+		randNumGen = new Random(this.seed);
 		
 		try{
 			node = nodeImpl.newInstance();
@@ -64,6 +66,8 @@ public class Emulator extends Manager {
 			throw new IllegalArgumentException("Error while constructing node: " + e);
 		}
 		node.init(this, fishAddress);
+		
+		setTime(System.currentTimeMillis());
 	}
 	
 	/**
@@ -82,9 +86,6 @@ public class Emulator extends Manager {
 		
 		cmdInputType = InputType.USER;
 		userControl = failureGen;
-		
-		server = new EmulatedNodeServer(udpSocket);
-		server.start();
 	}
 	
 	public Emulator(Class<? extends Node> nodeImpl, String trawlerName, int trawlerPort, int localUDPPort, FailureLvl failureGen, String commandFile, Long seed) throws UnknownHostException, SocketException, 
@@ -93,9 +94,6 @@ public class Emulator extends Manager {
 		
 		cmdInputType = InputType.FILE;
 		userControl = failureGen;
-		
-		server = new EmulatedNodeServer(udpSocket);
-		server.start();
 		
 		EmulationCommandsParser commandFileParser = new EmulationCommandsParser();
 		sortedEvents = commandFileParser.parseFile(commandFile);
