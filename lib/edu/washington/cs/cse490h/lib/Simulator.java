@@ -22,7 +22,6 @@ public class Simulator extends Manager {
     
 	private HashMap<Integer, Node> nodes;
 	private HashSet<Integer> crashedNodes;
-	private ArrayList<Packet> inTransitMsgs;
 	
 	private HashSet<Timeout> canceledTimeouts;
 
@@ -53,8 +52,6 @@ public class Simulator extends Manager {
 		System.out.println("Starting simulation with seed: " + this.seed);
 		randNumGen = new Random(this.seed);
 		
-		waitingTOs = new ArrayList<Timeout>();
-		inTransitMsgs = new ArrayList<Packet>();
 		nodes = new HashMap<Integer, Node>();
 		crashedNodes = new HashSet<Integer>();
 		Node.setNumNodes(0);
@@ -519,7 +516,7 @@ public class Simulator extends Manager {
 					}
 				}
 			}catch(IOException e){
-				e.printStackTrace(System.err);
+				e.printStackTrace();
 			}
 		}
 	}

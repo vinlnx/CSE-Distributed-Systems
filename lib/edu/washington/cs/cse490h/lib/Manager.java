@@ -21,7 +21,9 @@ public abstract class Manager {
     protected long seed;
     
 	private int pktsSent;
-	protected ArrayList<Event> sortedEvents;
+	ArrayList<Event> sortedEvents;
+	ArrayList<Timeout> waitingTOs;
+	ArrayList<Packet> inTransitMsgs;
 	protected CommandsParser parser;   // parser for commands file
 
 	protected final BufferedReader keyboard;
@@ -54,16 +56,16 @@ public abstract class Manager {
 		}
 	}
 	private long time;
-	ArrayList<Timeout> waitingTOs;
 	
 	/**
 	 * Initialize Manager. 
 	 * @param time Starting time in microseconds
 	 */
 	protected Manager(Class<? extends Node> nodeImpl) throws IllegalArgumentException{
-		this.pktsSent = 0;
-		this.sortedEvents = new ArrayList<Event>();
-		this.parser = null;
+		pktsSent = 0;
+		waitingTOs = new ArrayList<Timeout>();
+		inTransitMsgs = new ArrayList<Packet>();
+		parser = null;
 		
 		this.nodeImpl = nodeImpl;
 		try{

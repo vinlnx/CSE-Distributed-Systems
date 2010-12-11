@@ -12,8 +12,13 @@ import java.io.InputStreamReader;
 import java.io.IOException;
 import java.lang.NumberFormatException;
 import java.lang.Integer;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Random;
 
+import edu.washington.cs.cse490h.lib.Manager.FailureLvl;
+import edu.washington.cs.cse490h.lib.Manager.Timeout;
 import edu.washington.cs.cse490h.lib.Node.NodeCrashException;
 
 /**
@@ -27,6 +32,7 @@ public class Emulator extends Manager {
 	private int fishAddress;    
 	private Node node;
 	private EmulatedNodeServer server;
+	
 
 	public Emulator(Class<? extends Node> nodeImpl, String trawlerName, int trawlerPort, int localUDPPort, Long seed) throws IOException, IllegalArgumentException{
 		super(nodeImpl);
@@ -131,22 +137,49 @@ public class Emulator extends Manager {
 	/**
 	 * Starts the emulated node
 	 */
+	@Override
 	public void start() {
 		try{
 			node.start();
 		}catch(NodeCrashException e) { }
 		
 		if(cmdInputType == InputType.FILE) {
-			while(!sortedEvents.isEmpty()) {
-				checkCrash();
+			while(!inTransitMsgs.isEmpty() || !sortedEvents.isEmpty() || !waitingTOs.isEmpty()) {
+				ArrayList<Event> currentRoundEvents = new ArrayList<Event>();
 				
-				processPacket(server.getPacket());
+				// If a message was delivered successfully and therefore changed the state,
+				// in transit messages should be checked again.
+				//		Ex: In order to deliver a sequence of messages in reverse order, we need to
+				//		recursively delay everything except the last message.
+				checkInTransit(currentRoundEvents);
 				
-				handleEvent(sortedEvents.remove(0));
+				boolean advance = false;
+				do{
+					if(sortedEvents.isEmpty()){
+						advance = true;
+					}else{
+						Event ev = sortedEvents.remove(0);
+						if(ev.t == Event.EventType.TIME) {
+							advance = true;
+						} else {
+							currentRoundEvents.add(ev);
+						}
+					}
+				}while(!advance);
+				
+				checkCrash(currentRoundEvents);
+				
+				//TODO checkTimeouts(currentRoundEvents);
+				
+				//TODO executeEvents(currentRoundEvents);
+				
+				setTime(now()+1);
 			}
 		}else if(cmdInputType == InputType.USER) {
 			while(true){
-				checkCrash();
+				ArrayList<Event> currentRoundEvents = new ArrayList<Event>();
+				
+				checkCrash(currentRoundEvents);
 
 				// just in case an exception is thrown or input is null
 				Event ev = null;
@@ -174,23 +207,115 @@ public class Emulator extends Manager {
 		}
 	}
 	
-	private void checkCrash(){
-		// See if we should crash any nodes.
+	private void checkInTransit(ArrayList<Event> currentRoundEvents) {
+		if(inTransitMsgs.isEmpty()){
+			return;
+		}
+		
+		// See what we should do with all the in-transit messages
+		ArrayList<Packet> currentPackets = inTransitMsgs;
+		inTransitMsgs = new ArrayList<Packet>();
+		
+		if(userControl.compareTo(FailureLvl.DROP) < 0){		// userControl < DROP
+			// Figure out if we need to drop the packet.
+			Iterator<Packet> iter = currentPackets.iterator();
+			while(iter.hasNext()) {
+				Packet p = iter.next();
+				double rand = randNumGen.nextDouble();
+				if(rand < dropRate){
+					System.out.println("Randomly dropping: " + p.toString());
+					iter.remove();
+				}
+			}
+		}else{
+			System.out.println("The following messages are in transit: ");
+			for(int i = 0; i < currentPackets.size(); ++i){
+				System.out.println(i + ": " + currentPackets.get(i).toString());
+			}
+
+			try{
+				System.out.println("Which should be dropped? (space delimited list or just press enter to drop none)");
+				String input = keyboard.readLine().trim();
+				// hash set so we don't have to deal with duplicates
+				HashSet<Packet> toBeRemoved = new HashSet<Packet>();
+				
+				if(!input.equals("")){
+					String[] dropList = input.split("\\s+");
+					for(String s: dropList){
+						toBeRemoved.add( currentPackets.get(Integer.parseInt(s)) );
+					}
+				}
+				
+				if(toBeRemoved.size() == currentPackets.size()){
+					currentPackets.clear();
+					return;
+				}
+				
+				// If user drops and delays the same packet, result is undefined
+				//   In current implementation, delay takes precedence
+				if(userControl.compareTo(FailureLvl.DELAY) >= 0){		// userControl >= DELAY
+					System.out.println("Which should be delayed? (space delimited list or just press enter to delay none)");
+					input = keyboard.readLine().trim();
+					
+					if(!input.equals("")){
+						String[] delayList = input.split("\\s+");
+						for(String s: delayList){
+							Packet p = currentPackets.get(Integer.parseInt(s));
+							inTransitMsgs.add(p);
+							toBeRemoved.add(p);
+						}
+					}
+					
+					if(toBeRemoved.size() == currentPackets.size()){
+						return;
+					}
+				}
+				
+				currentPackets.removeAll(toBeRemoved);
+			}catch(IOException e){
+				e.printStackTrace(System.err);
+			}
+		}
+		
+		if(userControl.compareTo(FailureLvl.DELAY) < 0){		// userControl < DELAY
+			Iterator<Packet> iter = currentPackets.iterator();
+			while(iter.hasNext()) {
+				Packet p = iter.next();
+				double rand = randNumGen.nextDouble();
+				// adjust the probability since these are not independent events
+				//   Ex: 50% drop rate and 50% delay rate should mean that nothing gets through
+				double adjustedDelay = delayRate / (1 - dropRate);
+				if(rand < adjustedDelay){
+					System.out.println("Randomly Delaying: " + p.toString());
+					iter.remove();
+					inTransitMsgs.add(p);
+				}
+			}
+		}
+		
+		for(Packet p: currentPackets) {
+			currentRoundEvents.add(new Event(p));
+		}
+	}
+	
+	private void checkCrash(ArrayList<Event> currentRoundEvents){
+		// See if we should crash.
+		// TODO: maybe add recoveries???
 		// Failures and restarts specified in the file are deprecated
 		if(userControl.compareTo(FailureLvl.CRASH) < 0){
 			int rand = randNumGen.nextInt(100);
 			if(rand < failureRate){
-				failNode();
+				currentRoundEvents.add(new Event(-1, Event.EventType.FAILURE));
 			}
 		}else{
 			try{
 				System.out.println("Crash? (y/n)");
 				String input = keyboard.readLine();
 				if(input.charAt(0) == 'y'){
-					failNode();
+					currentRoundEvents.add(new Event(-1, Event.EventType.FAILURE));
 				}
 			}catch(IOException e){
-				e.printStackTrace(System.err);
+				e.printStackTrace();
 			}
 		}
 	}

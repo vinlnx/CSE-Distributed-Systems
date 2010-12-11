@@ -39,6 +39,7 @@ public abstract class Node {
 	}
 	
 	// In case the student's implementation needs to know this.
+	// TODO: remove numNodes
 	private static int numNodes;
 	public final static int getNumNodes(){
 		return numNodes;
