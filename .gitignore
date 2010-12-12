@@ -1,0 +1,5 @@
+# ignore java class files
+*.class
+
+# ignore temporary emacs files
+*~
