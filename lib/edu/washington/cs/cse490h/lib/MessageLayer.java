@@ -7,180 +7,263 @@ import java.net.URLClassLoader;
 import java.net.UnknownHostException;
 import java.net.SocketException;
 
+import plume.Option;
+import plume.Options;
+import plume.OptionGroup;
+
 import edu.washington.cs.cse490h.lib.Manager.FailureLvl;
 
 /**
- * <pre>   
+ * <pre>
+ * 
  * Class with main method that starts up a Manager. Either an Emulator or a Simulator
- * Usage:  java MessageLayer <simulate> <num nodes> [fishnet file] [timescale]
- *         or
- *         java MessageLayer <emulate> <trawler host name> <trawler port> <local port to use> [fishnet file]
- *         
- *         Arguments in <> are required and arguments in [] are optional. MessageLayer file is a file with commands for a node
+ * 
+ * Usage: java MessageLayer [options]
+ * 
+ * General Options:
+ *  -h --help=<boolean>               - Print usage message [default false]
+ *  -v --version=<boolean>            - Print program version [default false]
+ *
+ * Execution Options:
+ *  -s --simulate=<boolean>           - Simulate [default false]
+ *  -e --emulate=<boolean>            - Emulate [default false]
+ *  -n --nodeClass=<string>           - Node class to use [default ]
+ *  --trawlerHostname=<string>        - Trawler hostname [default ]
+ *  --trawlerPort=<int>               - Trawler port [default -1]
+ *  -p --localUDPPort=<int>           - Local UDP port [default -1]
+ *  -r --seed=<long>                  - Random seed
+ *  -c --commandFile=<string>         - Command file [default ]
+ *  -f --failureLvlInt=<int>          - Failure level, a number between 0 and 4 [default 4]
+ *
+ * Synoptic Options:
+ * -l --synopticLogFilename=<string> - Synoptic log filename [default ]
+ *
  * </pre>   
  */
 public class MessageLayer {
+	
+	/**
+     * The current version.
+     */
+    public static final String versionString = "v0.1";
+	
+	////////////////////////////////////////////////////
+    /**
+     * Print the usage message.
+     */
+    @OptionGroup("General Options")
+    @Option(value="-h Print usage message", aliases={"-help"})
+    public static boolean help = false;
+        
+    /**
+     * Print the current version.
+     */
+    @Option(value="-v Print program version", aliases={"-version"})
+    public static boolean version = false;
+    // end option group "General Options"
 
-	private static void usage() {
-		System.out.println("Usage:  java MessageLayer <simulate> <nodeclass> [-R{0|1|2|3|4} [seed]] [-c commandfile]\n" + 
-				"or\n" + 
-				"java MessageLayer <emulate> <nodeclass> <trawler host name> <trawler port> <local port to use> [-R{0|1|2|3|4} [seed]] [-c commandfile]\n\n" +          
-				"Arguments in <> are required and arguments in [] are optional.\n" +  
-				"command file is a file with commands for a node");
-	}
+    
+  	////////////////////////////////////////////////////
+    /**
+     * Perform simulation
+     */
+    @OptionGroup("Execution Options")
+    @Option(value="-s Simulate", aliases={"-simulate"})
+    public static boolean simulate = false;
+    
+    /**
+     * Perform emulation
+     */
+    @Option(value="-e Emulate", aliases={"-emulate"})
+    public static boolean emulate = false;
+        
+    /**
+     * Node class to use for simulation\emulation
+     */
+    @Option(value="-n Node class to use", aliases={"-node-cls"})
+    public static String nodeClass = "";
+    
+    /**
+     * Trawler hostname
+     */
+    @Option(value="Trawler hostname", aliases={"-trawler-host"})
+    // TODO: specify a sane default        
+    public static String trawlerHostname = "";
+    
+    /**
+     * Trawler port
+     */
+    @Option(value="Trawler port", aliases={"-trawler-port"})
+    // TODO: specify a sane default    
+    public static int trawlerPort = -1;
+    
+    /**
+     * Local port
+     */
+    @Option(value="-p Local UDP port", aliases={"-local-port"})
+    // TODO: specify a sane default
+    public static int localUDPPort = -1;
+    
+    /**
+     * Seed to use
+     */
+    @Option(value="-r Random seed", aliases={"-rand-seed"})
+    public static Long seed = null;
+    
+    /**
+     * Command file
+     */
+    @Option(value="-c Command file", aliases={"-command-file"})
+    public static String commandFile = "";
+
+    /**
+     * Failure level setting
+     */
+    @Option(value="-f Failure level, a number between 0 and 4", aliases={"-failure-lvl"})
+    public static int failureLvlInt = 4;
+    // end option group "Execution Options"
+
+    
+    ////////////////////////////////////////////////////
+    /**
+     * The log filename for synoptic output
+     */
+    @OptionGroup("Synoptic Options")
+    @Option(value="-l Synoptic log filename", aliases={"-synoptic-logfile"})
+    // TODO: specify a sane default
+    public static String synopticLogFilename = "";
+    // end option group "Synoptic Options"
+
+
+    /** One line synopsis of usage */
+    private static String usage_string
+        = "java MessageLayer [options]";
+    
+    
+    /**
+     * Prints out an warning message
+     * 
+     * @param msg warning msg string
+     */
+    public static void printWarning(String msg) {
+    	System.err.println("Warning: " + msg);
+    }
+    
+    /**
+     * Prints out an error message
+     * 
+     * @param msg error msg string
+     */
+    public static void printError(String msg) {
+    	System.err.println("Error: " + msg);
+    }
+    
 
 	/**
 	 * The main method. Entry point to start a Manager
 	 */
 	public static void main(String[] args) {
-		if(args.length < 2) {
-			System.err.println("Missing arguments");
-			usage();
-			return;
-		}
-
+		// this directly sets the static member options of the Main class
+        Options options = new Options (usage_string, MessageLayer.class);
+        // cmdLineArgs are unused
+        String[] cmdLineArgs = options.parse_or_usage(args);
+        
+        if (help) {
+            options.print_usage();
+            return;
+        }
+        
+        if (version) {
+            System.out.println(MessageLayer.versionString);
+            return;
+        }
+        
+        if (!simulate && !emulate) {
+            printError("you must specify either -s or -e.");
+            return;
+        }
+        
+        if (nodeClass == "") {
+            printError("you must specify a node class with -n.");
+            return;
+        }
+        
+        if (commandFile == "") {
+        	printWarning("you did not specify a commant file.");
+        }
+        
+        if (synopticLogFilename == "") {
+        	printWarning("you did not specify a synoptic log file.");
+        }
+        
+        FailureLvl failureLvl = FailureLvl.EVERYTHING;
+        if (failureLvlInt == -1) {
+        	printWarning("you did not specify a failure level with -failure-lvl. Using failure-lvl 4 = EVERYTHING");
+        } else {
+        	FailureLvl[] possibleFailureLvls = {
+        			FailureLvl.NOTHING,    // 0
+        			FailureLvl.CRASH,      // 1
+        			FailureLvl.DROP,       // 2
+        			FailureLvl.DELAY,      // 3
+        			FailureLvl.EVERYTHING, // 4
+			};
+        	failureLvl = possibleFailureLvls[failureLvlInt];	
+        }
+        
+        
 		try {
 			Manager manager = null;
 
 			URLClassLoader nodeLoader = new URLClassLoader(new URL[] {ClassLoader.getSystemResource("../proj/")});
-			Class<? extends Node> nodeImpl = nodeLoader.loadClass(args[1]).asSubclass(Node.class);
+			Class<? extends Node> nodeImpl = nodeLoader.loadClass(nodeClass).asSubclass(Node.class);
 
-			if(args[0].equals("simulate")) {
-				FailureLvl failureGen = FailureLvl.EVERYTHING;
-				String commandFile = null;
-				Long seed = null;
-
-				for(int i = 2; i < args.length; ++i){
-					if(args[i].charAt(0) == '-'){
-						if(args[i].charAt(1) == 'R'){
-							if(args[i].substring(1).equals("R0")){
-								failureGen = FailureLvl.NOTHING;
-							}else if(args[i].substring(1).equals("R1")){
-								failureGen = FailureLvl.CRASH;
-							}else if(args[i].substring(1).equals("R2")){
-								failureGen = FailureLvl.DROP;
-							}else if(args[i].substring(1).equals("R3")){
-								failureGen = FailureLvl.DELAY;
-							}else{
-								failureGen = FailureLvl.EVERYTHING;
-							}
-							
-							if(i+1 < args.length){
-								try{
-									seed = Long.parseLong(args[i+1]);
-									++i;
-								}catch(NumberFormatException e){
-									seed = null;
-								}
-							}
-						}else if(args[i].substring(1).equals("c")){
-							if(++i < args.length){
-								commandFile = args[i];
-							}else{
-								System.err.println("No command file specified");
-							}
-						}else{
-							System.err.println("Unknown option: " + args[i]);
-						}
-					}else{
-						System.err.println("Unknown argument: " + args[i]);
+			if (simulate) {
+				try {
+					if(commandFile != null){
+						manager = new Simulator(nodeImpl, failureLvl, commandFile, seed);
+					} else {
+						manager = new Simulator(nodeImpl, failureLvl, seed);
 					}
+				} catch (IllegalArgumentException e) {
+					printError("Illegal arguments given to Simulator. Exception: " + e);
+					return;
+				} catch (FileNotFoundException e) {
+					printError("Incorrect command file name given to Simulator. Exception: " + e);		    
+					return;
+				}
+
+			
+			} else { //emulate
+				if (trawlerHostname == "" || trawlerPort == -1 || localUDPPort == -1) {
+					printError("for an emulation you must specify trawler hostname/port with -th/-tp and local port with -p");
+					return;
 				}
 
 				try {
-					if(commandFile != null){
-						manager = new Simulator(nodeImpl, failureGen, commandFile, seed);
-					}else{
-						manager = new Simulator(nodeImpl, failureGen, seed);
+					if (commandFile != null) {
+						manager = new Emulator(nodeImpl, trawlerHostname, trawlerPort, localUDPPort, failureLvl, commandFile, seed);
+					} else {
+						manager = new Emulator(nodeImpl, trawlerHostname, trawlerPort, localUDPPort, failureLvl, seed);
 					}
-				}catch(IllegalArgumentException e) {
-					System.err.println("Illegal arguments given to Simulator. Exception: " + e);
+				} catch(UnknownHostException e) {
+					printError("CentralHandler host name is unkown! Exception: " + e);
 					return;
-				}catch(FileNotFoundException e) {
-					System.err.println("Incorrect command file name given to Simulator. Exception: " + e);		    
+				} catch(SocketException e) {
+					printError("Could not bind to the given local port: " + localUDPPort + ". Exception: " + e);
 					return;
-				}
-
-			}else if(args[0].equals("emulate")) {
-				if(args.length < 5) {
-					System.err.println("Missing arguments to emulator");
-					usage();
+				} catch(IOException e) {
+					printError("Encountered exception while trying to connect to CentralHandler. Exception " + e);
 					return;
-				}
-				String trawlerName = args[2];
-				int trawlerPort = Integer.parseInt(args[3]);
-				int localUDPPort = Integer.parseInt(args[4]);
-				
-				FailureLvl failureGen = FailureLvl.EVERYTHING;
-				String commandFile = null;
-				Long seed = null;
-
-				for(int i = 5; i < args.length; ++i){
-					if(args[i].charAt(0) == '-'){
-						if(args[i].charAt(1) == 'R'){
-							if(args[i].substring(1).equals("R0")){
-								failureGen = FailureLvl.NOTHING;
-							}else if(args[i].substring(1).equals("R1")){
-								failureGen = FailureLvl.CRASH;
-							}else if(args[i].substring(1).equals("R2")){
-								failureGen = FailureLvl.DROP;
-							}else if(args[i].substring(1).equals("R3")){
-								failureGen = FailureLvl.DELAY;
-							}else{
-								failureGen = FailureLvl.EVERYTHING;
-							}
-							
-							if(i+1 < args.length){
-								try{
-									seed = Long.parseLong(args[i+1]);
-									++i;
-								}catch(NumberFormatException e){
-									seed = null;
-								}
-							}
-						}else if(args[i].substring(1).equals("c")){
-							if(++i < args.length){
-								commandFile = args[i];
-							}else{
-								System.err.println("No command file specified");
-							}
-						}else{
-							System.err.println("Unknown option: " + args[i]);
-						}
-					}else{
-						System.err.println("Unknown argument: " + args[i]);
-					}
-				}
-				
-				
-				try {
-					if(commandFile != null){
-						manager = new Emulator(nodeImpl, trawlerName, trawlerPort, localUDPPort, failureGen, commandFile, seed);
-					}else{
-						manager = new Emulator(nodeImpl, trawlerName, trawlerPort, localUDPPort, failureGen, seed);
-					}
-				}catch(UnknownHostException e) {
-					System.err.println("CentralHandler host name is unkown! Exception: " + e);
-					return;
-				}catch(SocketException e) {
-					System.err.println("Could not bind to the given local port: " + localUDPPort + ". Exception: " + e);
-					return;
-				}catch(IOException e) {
-					System.err.println("Encountered exception while trying to connect to CentralHandler. Exception " + e);
-					return;
-				}catch(IllegalArgumentException e) {
-					System.err.println("Illegal arguments given to Emulator. Exception: " + e);
+				} catch(IllegalArgumentException e) {
+					printError("Illegal arguments given to Emulator. Exception: " + e);
 					return;
 				}
-			}else {
-				System.err.println("Unknown arguments");
-				usage();
-				return;
 			}
-
+		
 			manager.start();
-		}catch(Exception e) {
-			System.err.println("Exception occured in MessageLayer!! Exception: " + e);
+			
+		} catch(Exception e) {
+			printError("Exception occured in MessageLayer!! Exception: " + e);
 			e.printStackTrace();
 		}
 	}

@@ -3,3 +3,6 @@
 
 # ignore temporary emacs files
 *~
+
+# ignore specific auto-generated jar file
+jars/lib.jar
