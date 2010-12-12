@@ -47,7 +47,7 @@ public class Event {
 	public Event(Timeout to) {
 		this.to = to;
 		t = EventType.TIMEOUT;
-		node = to.addr;
+		node = to.node.addr;
 	}
 	
 	public String toString() {
@@ -72,4 +72,26 @@ public class Event {
 			return "UNKNOWN EVENT TYPE " + t;
 		}
 	}
+	
+	public String toSynopticString() {
+		switch(t) {
+		
+		
+		case EXIT:
+			return "EXIT";
+		case COMMAND:
+			return "COMMAND " + command;
+		case ECHO:
+			return "ECHO " + msg;
+		case TIME:
+			return "TIME " + msg;
+		case DELIVERY:
+			return "DELIVERY " + p.toSynopticString();
+		case TIMEOUT:
+			return "TIMEOUT " + to;
+		default:
+			return "UNKNOWN EVENT TYPE " + t;
+		}
+	}
+	
 }

@@ -40,19 +40,19 @@ public abstract class Manager {
 	protected enum InputType{ USER, FILE }
 	
 	class Timeout{
-		int addr;
+		Node node;
 		long fireTime;
 		Callback cb;
 		
-		Timeout(int addr, long fireTime, Callback cb) {
-			this.addr = addr;
+		Timeout(Node node, long fireTime, Callback cb) {
+			this.node = node;
 			this.fireTime = fireTime;
 			this.cb = cb;
 			
 		}
 		
 		public String toString() {
-			return addr + ": " + cb + " at " + fireTime;
+			return node.addr + ": " + cb + " at " + fireTime;
 		}
 	}
 	private long time;
@@ -117,7 +117,8 @@ public abstract class Manager {
 	 * @return True	if the packet was sent, false otherwise
 	 * @throws IllegalArgumentException	If the arguments are invalid
 	 */
-	public void sendPkt(int from, int to, byte[] pkt) throws IllegalArgumentException {
+	public void sendPkt(Node fromNode, int to, byte[] pkt) throws IllegalArgumentException {
+		int from = fromNode.addr;
 		if ( (pkt.length > Packet.MAX_PACKET_SIZE)
 			|| !Packet.validAddress(to)
 			|| !Packet.validAddress(from)
@@ -132,8 +133,8 @@ public abstract class Manager {
 		this.parser = parser;
 	}
 	
-	protected void addTimeout(int addr, long timeout, Callback cb) {
-		waitingTOs.add(new Timeout(addr, now() + timeout, cb));
+	protected void addTimeout(Node node, long timeout, Callback cb) {
+		waitingTOs.add(new Timeout(node, now() + timeout, cb));
 	}
 	
 	public long now(){

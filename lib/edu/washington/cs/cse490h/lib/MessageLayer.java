@@ -194,6 +194,8 @@ public class MessageLayer {
         
         if (synopticLogFilename == "") {
         	printWarning("you did not specify a synoptic log file.");
+        } else {
+        	System.out.println("synopticLogFilename = " + synopticLogFilename);
         }
         
         FailureLvl failureLvl = FailureLvl.EVERYTHING;

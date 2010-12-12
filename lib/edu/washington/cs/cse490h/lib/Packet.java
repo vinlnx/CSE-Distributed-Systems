@@ -158,4 +158,9 @@ public class Packet {
 				size <= MAX_PACKET_SIZE);
 
 	}
+
+	public String toSynopticString() {
+		return new String("src:" + src + " dest:" + dest + " proto:" + protocol + 
+				" contents:" + Utility.byteArrayToString(payload));
+	}
 }

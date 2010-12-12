@@ -349,8 +349,9 @@ public class Emulator extends Manager {
 	 * @return True if the packet was sent, false otherwise
 	 * @throws IllegalArgumentException If the arguments are invalid
 	 */
-	public void sendPkt(int from, int to, byte[] pkt) throws IllegalArgumentException {
-		super.sendPkt(from, to, pkt);  // check arguments
+	public void sendPkt(Node fromNode, int to, byte[] pkt) throws IllegalArgumentException {
+		int from = fromNode.addr;
+		super.sendPkt(fromNode, to, pkt);  // check arguments
 		EmulatorPacket emulatorPacket = new EmulatorPacket(to, from, pkt);
 		byte[] payload = emulatorPacket.pack();
 		if(payload == null) {

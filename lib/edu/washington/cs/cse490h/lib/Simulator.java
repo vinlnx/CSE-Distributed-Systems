@@ -23,6 +23,12 @@ public class Simulator extends Manager {
 	private HashMap<Integer, Node> nodes;
 	private HashSet<Integer> crashedNodes;
 	
+	// the global logical time ordering which increments by 1 on every
+	// event in the simulated system.
+	private int globalLogicalTime = 0;
+	
+	private SynopticLogger synLogger = new SynopticLogger();
+	
 	private HashSet<Timeout> canceledTimeouts;
 
 	/**
@@ -96,6 +102,9 @@ public class Simulator extends Manager {
 	
 	@Override
 	public void start() {
+		// start the synoptic logger
+		this.synLogger.start();
+		
 		if(cmdInputType == InputType.FILE) {
 			while(!inTransitMsgs.isEmpty() || !sortedEvents.isEmpty() || !waitingTOs.isEmpty()) {
 				System.out.println("\nTime: " + now());
@@ -192,10 +201,15 @@ public class Simulator extends Manager {
 		System.out.println(stopString());
 		for(Integer i: nodes.keySet()){
 			System.out.println(i + ": " + nodes.get(i).toString());
+			logEvent(nodes.get(i), "STOPPED");
 		}
+		
 		for(Integer i: crashedNodes){
 			System.out.println(i + ": failed");
 		}
+		
+		// stop the synoptic logger
+		this.synLogger.stop();
 		System.exit(0);
 	}
 
@@ -212,8 +226,9 @@ public class Simulator extends Manager {
 	 * @throws IllegalArgumentException
 	 *             If the send is invalid
 	 */
-	public void sendPkt(int from, int to, byte[] pkt) throws IllegalArgumentException {
-		super.sendPkt(from, to, pkt);  // check arguments
+	public void sendPkt(Node fromNode, int to, byte[] pkt) throws IllegalArgumentException {
+		int from = fromNode.addr;
+		super.sendPkt(fromNode, to, pkt);  // check arguments
 		
 		if(!isNodeValid(from)) {
 			return;
@@ -228,10 +243,13 @@ public class Simulator extends Manager {
 		if(to == Packet.BROADCAST_ADDRESS) {
 			for(Integer i: nodes.keySet()) {
 				if(i != from){
-					inTransitMsgs.add(new Packet(i, from, p.getProtocol(), p.getPayload()));
+					Packet newPacket = new Packet(i, from, p.getProtocol(), p.getPayload());
+					logEvent(fromNode, "SEND " + newPacket.toSynopticString());
+					inTransitMsgs.add(newPacket);
 				}
 			}
 		}else{
+			logEvent(fromNode, "SEND " + p.toSynopticString());
 			inTransitMsgs.add(p);
 		}
 	}
@@ -249,7 +267,7 @@ public class Simulator extends Manager {
 		if(!isNodeValid(nodeAddr)) {
 			return false;
 		}
-		
+		logEvent(nodes.get(nodeAddr), "COMMAND" + msg);
 		nodes.get(nodeAddr).onCommand(msg);
 		return true;
 	}
@@ -303,13 +321,15 @@ public class Simulator extends Manager {
 				crash = e;
 			}
 			
+			logEvent(crashingNode, "FAILURE");
+			
 			nodes.remove(node);
 			crashedNodes.add(node);
 			
 			Iterator<Timeout> iter = waitingTOs.iterator();
 			while(iter.hasNext()){
 				Timeout to = iter.next();
-				if(to.addr == node){
+				if(to.node.addr == node){
 					canceledTimeouts.add(to);
 				}
 			}
@@ -351,6 +371,8 @@ public class Simulator extends Manager {
 		}
 		nodes.put(node, newNode);
 		
+		logEvent(newNode, "START");
+
 		newNode.init(this, node);
 		try{
 			newNode.start();
@@ -607,6 +629,7 @@ public class Simulator extends Manager {
 	 * @return True if we should advance time, False otherwise
 	 */
 	private void handleEvent(Event ev){
+
 		switch(ev.t){
 		case FAILURE:
 			failNode(ev.node);
@@ -621,12 +644,17 @@ public class Simulator extends Manager {
 			sendNodeCmd(ev.node, ev.command);
 			break;
 		case ECHO:
+			// since this is not intended for any particular node, we can't
+			// associate it with any node, and therefore we don't log it with
+			// synoptic
 			parser.printStrArray(ev.msg, System.out);
 			break;
 		case DELIVERY:
 			deliverPkt(ev.p.getDest(), nodes.get(ev.p.getDest()), ev.p.getSrc(), ev.p);
 			break;
 		case TIMEOUT:
+			logEvent(ev.to.node, "TIMEOUT " + ev.to.cb.toString());
+						
 			try{
 				ev.to.cb.invoke();
 			}catch(InvocationTargetException e) {
@@ -720,11 +748,25 @@ public class Simulator extends Manager {
 		if(!isNodeValid(destAddr)) {
 			return false;
 		}
-		
+
+		logEvent(destNode, "RECVD " + pkt.toSynopticString());
+				
 		try{
 			destNode.onReceive(srcAddr, pkt.getProtocol(), pkt.getPayload());
 		}catch(NodeCrashException e) { }
 		
 		return true;
+	}
+	
+	
+	/**
+	 * Log the event in the synoptic log using the simulator's global logical ordering 
+	 * 
+	 * @param node node generating the event
+	 * @param eventStr the event string description of the event
+	 */
+	private void logEvent(Node node, String eventStr) {
+		this.synLogger.logEvent("" + this.globalLogicalTime, node, eventStr);
+		this.globalLogicalTime += 1;
 	}
 }

@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 
 import edu.washington.cs.cse490h.lib.Manager;
 
@@ -37,6 +38,10 @@ public abstract class Node {
 	class NodeCrashException extends Error {
 		private static final long serialVersionUID = 1418673528976798283L;
 	}
+	
+	// this node's local vector time
+	// note: ArrayList data structure is not synchronized!
+	private static ArrayList localVectorTime = null;
 	
 	// In case the student's implementation needs to know this.
 	// TODO: remove numNodes
@@ -75,6 +80,10 @@ public abstract class Node {
 		this.manager = manager;
 		this.addr = addr;
 		setTimeout(4);
+		localVectorTime = new ArrayList();
+		// create an empty localVectorTime
+		for (int i = 0; i < numNodes; i++)
+			localVectorTime.add(0);
 	}
 
 	/**
@@ -126,7 +135,7 @@ public abstract class Node {
 	public void send(int destAddr, int protocol, byte[] payload) {
 		Packet newPkt = new Packet(destAddr, addr, protocol, payload);
 		try {
-			manager.sendPkt(addr, destAddr, newPkt.pack());
+			manager.sendPkt(this, destAddr, newPkt.pack());
 		}catch(IllegalArgumentException e) {
 			e.printStackTrace();
 		}
@@ -143,6 +152,7 @@ public abstract class Node {
 	public void addTimeout(Callback cb){
 		if(getTimeout() <= 0) {
 			// if the timeout is less than or equal to 0, just invoke the callback
+			// TODO: synoptic logging here
 			try{
 				cb.invoke();
 			}catch(InvocationTargetException e) {
@@ -156,7 +166,7 @@ public abstract class Node {
 				e.printStackTrace();
 			}
 		} else {
-			manager.addTimeout(addr, getTimeout(), cb);
+			manager.addTimeout(this, getTimeout(), cb);
 		}
 	}
 	
@@ -210,5 +220,15 @@ public abstract class Node {
 	@Override
 	public String toString(){
 		return "addr: " + addr;
+	}
+	
+	/**
+	 * Returns a unique string identifier for this node that can be used
+	 * in synoptic log files.
+	 * 
+	 * @return unique string identifying this node
+	 */
+	final public String toSynopticString() {
+		return "" + addr;
 	}
 }
