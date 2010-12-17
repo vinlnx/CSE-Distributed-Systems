@@ -2,25 +2,33 @@ package edu.washington.cs.cse490h.lib;
 
 import java.net.Socket;
 import java.net.InetAddress;
-import java.io.PrintWriter;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.IOException;
 
 /**
  * <pre>   
  * Keeps track of information about an emulated node
- * Emulated node uses a TCP socket to talk to the CentralHandler, but send and receive messages directly
+ * Emulated node uses a TCP socket to talk to the Router, but send and receive messages directly
  * to other emulated nodes using UDP. 
  * </pre>   
  */
-public class EmulatedNode {
-
+public class EmulatedNode implements Runnable{
+	private Router parent;
 	private Socket socket;               // Socket used to talk to node
-	private PrintWriter out;             // Output stream to send data across socket
-	private int fishAddr;                // Fish address assigned to node
+	private OutputStream out;             // Output stream to send data across socket
+	private InputStream in;
+	private int addr;                // Fish address assigned to node
 
 	//This is the ip address and port that node uses to talk to other nodes via UDP
 	private InetAddress ipAddress;       // The IP address of node. 
 	private int port;                  // The port that node is on.
+	
+	private boolean error;
 
 	/**
 	 * Create a new EmulatedNode
@@ -29,36 +37,125 @@ public class EmulatedNode {
 	 * @param fishAddr The fishnet address of the emulated node
 	 * @param ipAddress The IP address of the machine that the node is on
 	 * @param port The port that the emulated node will use to talk to other nodes
+	 * @throws IOException 
 	 */
-	public EmulatedNode(Socket socket, PrintWriter out, int fishAddr, InetAddress ipAddress, int port) {
+	public EmulatedNode(Router parent, Socket socket, int addr, InetAddress ipAddress, int port) throws IOException {
+		this.parent = parent;
 		this.socket = socket;
-		this.fishAddr = fishAddr;
+		this.addr = addr;
 		this.ipAddress = ipAddress;
 		this.port = port;
 
-		this.out = out;
+		out = socket.getOutputStream();
+		in = socket.getInputStream();
+
+		error = false;
+
+		Thread t = new Thread(this);
+		t.start();
+	}
+
+	//FIXME: shouldn't assume that the recipient stays up
+	public void run() {
+		try {
+			while(isUp() && !error) {
+				Packet packet = Packet.unpack(in);
+
+				if(packet == null) {
+					error = true; // this doesn't matter right now but we set it anyway
+					throw new IOException("Corrupted packet.  Cannot recover from misalignment.");
+				}
+
+				if((packet.getFlags() & Packet.FIN) != 0) {
+					close();
+				} else if(packet.getDest() == Packet.BROADCAST_ADDRESS) {
+					//TODO: possibly queue to dead nodes, this same problem arises within the simulator framework as well
+					Collection<EmulatedNode> c = parent.emulatedNodes.values();
+					System.out.println("Broadcasting: " + packet);
+					synchronized(parent.emulatedNodes) {
+						for(EmulatedNode dest: c) {
+							if(dest.addr != this.addr) {
+								System.out.println("To: " + dest.addr);
+								dest.send(packet);
+							}
+						}
+					}
+				} else {
+					EmulatedNode dest = parent.getEmulatedNode(packet.getDest());
+					if (dest != null) {
+						System.out.println("Sending: " + packet);
+						dest.send(packet);
+					} else {
+						// The node failed, but let's send anyways to whatever node takes this address in the future
+						List<Packet> downQueue = parent.destDownQueue.get(packet.getDest());
+						if(downQueue == null) {
+							downQueue = Collections.synchronizedList( new LinkedList<Packet>() );
+							parent.destDownQueue.put(packet.getDest(), downQueue);
+						}
+
+						System.out.println("Queueing to failed node: " + packet);
+						downQueue.add(packet);
+					}
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public synchronized void send(Packet pkt){
+		try {
+			out.write(pkt.pack());
+			out.flush();
+		} catch (IOException e) {
+			error = true;
+		}
 	}
 
 	/**
 	 * Close the the connection to the emulated node
 	 */
-	public void close() {
+	public synchronized void close() {
 		try {
-			out.close();
-			socket.close();
+			Packet fin = new Packet(addr);
+			send(fin);
+			socket.shutdownOutput();
+
+			List<Packet> downQueue = parent.destDownQueue.get(addr);
+			if(downQueue == null) {
+				downQueue = Collections.synchronizedList( new LinkedList<Packet>() );
+				parent.destDownQueue.put(addr, downQueue);
+			}
+			parent.nodeQuit(addr);
+
+			while(true) {
+				Packet packet = Packet.unpack(in);
+
+				if(packet == null) {
+					throw new IOException("Corrupted packet.  Cannot recover from misalignment.");
+				}
+
+				if((packet.getFlags() & Packet.FIN) != 0) {
+					socket.close();
+					return;
+				} else {
+					downQueue.add(packet);
+				}
+			}
 		} catch (IOException e) {
 			System.err.println("Encountered IO Exception while trying to close socket in EmulatedNode: "
-								+ fishAddr + "Exception Stack Trace:");
+								+ addr + "Exception Stack Trace:");
 			e.printStackTrace();
+			error = true;
 		}
 	}
 
 	/**
-	 * Get the fishnet address of this node
-	 * @return The fishnet address of this node
+	 * Get the virtual address of this node
+	 * @return The virtual address of this node
 	 */
-	public int getFishAddr() {
-		return fishAddr;
+	public int getAddr() {
+		return addr;
 	}
 
 	/**
@@ -82,17 +179,15 @@ public class EmulatedNode {
 	 * @return A string containing details of this emulated node
 	 */
 	public String toString() {
-		return new String("<TCP: " + socket.getInetAddress() + ":" + socket.getPort() + " Fish: " + fishAddr +
-				" UDP: " + ipAddress + ":" + port + ">");
+		return new String("<TCP: " + socket.getInetAddress() + ":" + socket.getPort() + " Fish: " + addr + ">");
 	}
 
 	/**
 	 * Check if the emulated node is still alive
 	 * @return True if the node is still alive
 	 */
-	public boolean isAlive() {
+	public boolean isUp() {
 		return (!socket.isClosed() &&
-				!out.checkError()  &&
-				!socket.isOutputShutdown());
+				!socket.isInputShutdown());
 	}
 }

@@ -317,6 +317,7 @@ public class Node2PC extends Node{
 			
 			// wait for all of the participants to respond
 			currentState = State.VOTEWAIT;
+			//FIXME: this doesnt work if we're the only one alive
 			for(int i = 1; i < getNumNodes(); ++i){
 				add2PCTimeout(i);
 			}

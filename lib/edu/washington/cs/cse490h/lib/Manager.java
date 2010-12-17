@@ -28,6 +28,8 @@ public abstract class Manager {
 
 	protected final BufferedReader keyboard;
 	
+	SynopticLogger synLogger = new SynopticLogger();
+	
 	protected FailureLvl userControl;
 	protected enum FailureLvl{
 		NOTHING,		// Everything is handled by the random number generator

@@ -16,6 +16,7 @@ public class Event {
 	Packet p;
 	Timeout to;
 	
+	//TODO: clean this class up!
 	// FAILURE, START, EXIT
 	public Event(int node, EventType t) {
 		this.node = node;

@@ -4,5 +4,8 @@
 # ignore temporary emacs files
 *~
 
+# ignore the persistent storage of nodes
+storage/
+
 # ignore specific auto-generated jar file
 jars/lib.jar

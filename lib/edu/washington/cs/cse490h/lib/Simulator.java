@@ -27,8 +27,6 @@ public class Simulator extends Manager {
 	// event in the simulated system.
 	private int globalLogicalTime = 0;
 	
-	private SynopticLogger synLogger = new SynopticLogger();
-	
 	private HashSet<Timeout> canceledTimeouts;
 
 	/**
@@ -62,15 +60,21 @@ public class Simulator extends Manager {
 		crashedNodes = new HashSet<Integer>();
 		Node.setNumNodes(0);
 	}
-	
+
 	/**
 	 * Constructor for a simulator that takes commands from a file.
-	 * @param nodeImpl		The Class object for the student's node implementation
-	 * @param numNodes		The number of nodes to simulate
-	 * @param commandfile	File containing the list of commands
-	 * @param failureGen	How failures should be generated
-	 * @param seed			Seed for the RNG.
-	 * 						This can be null if the failure generator is not a RNG
+	 * 
+	 * @param nodeImpl
+	 *            The Class object for the student's node implementation
+	 * @param numNodes
+	 *            The number of nodes to simulate
+	 * @param commandfile
+	 *            File containing the list of commands
+	 * @param failureGen
+	 *            How failures should be generated
+	 * @param seed
+	 *            Seed for the RNG. This can be null if the failure generator is
+	 *            not a RNG
 	 * @throws IllegalArgumentException
 	 * @throws FileNotFoundException
 	 */
@@ -86,11 +90,16 @@ public class Simulator extends Manager {
 
 	/**
 	 * Constructor for a simulator that takes commands from the user.
-	 * @param nodeImpl		The Class object for the student's node implementation
-	 * @param numNodes		The number of nodes to simulate
-	 * @param failureGen	How failures should be generated
-	 * @param seed			Seed for the RNG.
-	 * 						This can be null if the failure generator is not a RNG
+	 * 
+	 * @param nodeImpl
+	 *            The Class object for the student's node implementation
+	 * @param numNodes
+	 *            The number of nodes to simulate
+	 * @param failureGen
+	 *            How failures should be generated
+	 * @param seed
+	 *            Seed for the RNG. This can be null if the failure generator is
+	 *            not a RNG
 	 * @throws IllegalArgumentException
 	 */
 	public Simulator(Class<? extends Node> nodeImpl, FailureLvl failureGen, Long seed) throws IllegalArgumentException {
@@ -147,6 +156,12 @@ public class Simulator extends Manager {
 				ArrayList<Event> currentRoundEvents = new ArrayList<Event>();
 				canceledTimeouts = new HashSet<Timeout>();
 				
+				// See above for a discussion on why this needs to happen
+				// The only difference is that, when a user is the failure generator,
+				//		they can simply input a null command to get back to the message
+				//		handling phase
+				checkInTransit(currentRoundEvents);
+				
 				Event ev;
 				boolean advance = false;
 				System.out.println("Please input a sequence of commands terminated by a blank line or the TIME command:");
@@ -181,13 +196,9 @@ public class Simulator extends Manager {
 				
 				checkCrash(currentRoundEvents);
 				
-				// See above for a discussion on why this needs to happen
-				// The only difference is that, when a user is the failure generator,
-				//		they can simply input a null command to get back to the message
-				//		handling phase
-				checkInTransit(currentRoundEvents);
-				
 				checkTimeouts(currentRoundEvents);
+				
+				executeEvents(currentRoundEvents);
 				
 				setTime(now()+1);
 			}
@@ -436,7 +447,6 @@ public class Simulator extends Manager {
 				}
 				
 				if(toBeRemoved.size() == currentPackets.size()){
-					currentPackets.clear();
 					return;
 				}
 				
@@ -462,7 +472,7 @@ public class Simulator extends Manager {
 				
 				currentPackets.removeAll(toBeRemoved);
 			}catch(IOException e){
-				e.printStackTrace(System.err);
+				e.printStackTrace();
 			}
 		}
 		
@@ -607,7 +617,7 @@ public class Simulator extends Manager {
 						}
 					}
 				}catch(IOException e){
-					e.printStackTrace(System.err);
+					e.printStackTrace();
 					doAgain = true;
 				}
 			}while(doAgain);
@@ -660,14 +670,14 @@ public class Simulator extends Manager {
 			}catch(InvocationTargetException e) {
 				Throwable t = e.getCause();
 				if(t == null) {
-					e.printStackTrace(System.err);
+					e.printStackTrace();
 				} else if(t instanceof NodeCrashException) {
 					// let it slide
 				} else {
-					t.printStackTrace(System.err);
+					t.printStackTrace();
 				}
 			}catch(IllegalAccessException e) {
-				e.printStackTrace(System.err);
+				e.printStackTrace();
 			}
 			break;
 		default:

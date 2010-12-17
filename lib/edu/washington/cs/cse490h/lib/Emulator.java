@@ -1,62 +1,40 @@
 package edu.washington.cs.cse490h.lib;
 
-import java.net.Socket;
-import java.net.DatagramSocket;
-import java.net.DatagramPacket;
-import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.net.SocketException;
-import java.io.PrintWriter;
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.io.IOException;
-import java.lang.NumberFormatException;
 import java.lang.Integer;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Random;
 
-import edu.washington.cs.cse490h.lib.Manager.FailureLvl;
-import edu.washington.cs.cse490h.lib.Manager.Timeout;
 import edu.washington.cs.cse490h.lib.Node.NodeCrashException;
 
+//TODO: deterministic replay! maybe wait for and use synoptic logging with message dumps
+
 /**
- * Manages an emulated node
+ * Manager that runs under a single emulated node on the client machine.
  */
 public class Emulator extends Manager {
-	private Socket trawler;
-	private PrintWriter trawlerWriter;
-	private BufferedReader trawlerReader;
-	private DatagramSocket udpSocket;
-	private int fishAddress;    
 	private Node node;
-	private EmulatedNodeServer server;
-	
+	private NodeServer server;
+	private int address;
 
-	public Emulator(Class<? extends Node> nodeImpl, String trawlerName, int trawlerPort, int localUDPPort, Long seed) throws IOException, IllegalArgumentException{
+	public Emulator(Class<? extends Node> nodeImpl, String trawlerName, int trawlerPort, Long seed) throws IOException, IllegalArgumentException{
 		super(nodeImpl);
 		
 		setParser(new EmulationCommandsParser());
 		
-		trawler = new Socket(trawlerName, trawlerPort);
-		trawlerWriter = new PrintWriter(trawler.getOutputStream(), true);
-		trawlerReader = new BufferedReader(new InputStreamReader(trawler.getInputStream()));
-		udpSocket = new DatagramSocket(localUDPPort);
-		try {
-			fishAddress = getFishAddress();
-		}catch(NumberFormatException e) {
-			System.err.println("Msg received from trawler is not an int, thus is not a fish address!!");
-			System.exit(1);
+		server = new NodeServer(trawlerName, trawlerPort, this);
+		address = server.getAddress();
+
+		if(address == Packet.BROADCAST_ADDRESS) {
+			// Router returns broadcast address to signal there's already someone using the local port
+			System.err.println("Address/Port is already in use. Pick another");
+			throw new IllegalArgumentException("Illegal local port");
 		}
-		if(fishAddress == Packet.BROADCAST_ADDRESS) {
-			// CentralHandler returns broadcast address to signal there's already someone using the local port
-			System.err.println("Port " + localUDPPort + " is already in use. Pick another");
-			throw new IllegalArgumentException("Illegal local port " + localUDPPort);
-		}
-		
-		server = new EmulatedNodeServer(udpSocket);
-		server.start();
 		
 		if(seed == null){
 			this.seed = System.currentTimeMillis();
@@ -71,68 +49,81 @@ public class Emulator extends Manager {
 		}catch(Exception e){
 			throw new IllegalArgumentException("Error while constructing node: " + e);
 		}
-		node.init(this, fishAddress);
+		node.init(this, address);
+		Node.setNumNodes(3); //FIXME: reprogram 2PC for this!!!
+		
+		server.start();
 		
 		setTime(System.currentTimeMillis());
 	}
-	
+
 	/**
-	 * Create a new emulator
-	 * @param trawlerName Name of the machine that the CentralHandler is on
-	 * @param trawlerPort The port that the CentralHandler is listening on
-	 * @param localUDPPort The UDP port that this node should use to talk to its neighbors
-	 * @throws UnknownHostException If the trawlerName cannot be resolved
-	 * @throws SocketException If there is an error in creating a TCP socket
-	 * @throws IOException If there is an error in writing to the TCP socket
-	 * @throws IllegalArgumentException If the local port given is already in use
+	 * Create a new emulator that takes commands through user input
+	 * 
+	 * @param nodeImpl
+	 *            The Class object for the student's node implementation
+	 * @param routerName
+	 *            Name of the machine that the Router is on
+	 * @param routerPort
+	 *            The port that the Router is listening on
+	 * @param failureGen
+	 *            How failures should be generated
+	 * @param seed
+	 *            Seed for the RNG. This can be null if the failure generator is
+	 *            not a RNG
+	 * 
+	 * @throws UnknownHostException
+	 *             If the router's name cannot be resolved
+	 * @throws IOException
+	 *             If there is an error in writing to the TCP socket
+	 * @throws IllegalArgumentException
+	 *             If the local port given is already in use
 	 */
-	public Emulator(Class<? extends Node> nodeImpl, String trawlerName, int trawlerPort, int localUDPPort, FailureLvl failureGen, Long seed) throws UnknownHostException, SocketException, 
-	IOException, IllegalArgumentException {
-		this(nodeImpl, trawlerName, trawlerPort, localUDPPort, seed);
-		
+	public Emulator(Class<? extends Node> nodeImpl, String routerName,
+			int routerPort, FailureLvl failureGen, Long seed)
+			throws UnknownHostException, IOException, IllegalArgumentException {
+		this(nodeImpl, routerName, routerPort, seed);
+
 		cmdInputType = InputType.USER;
 		userControl = failureGen;
 	}
 	
-	public Emulator(Class<? extends Node> nodeImpl, String trawlerName, int trawlerPort, int localUDPPort, FailureLvl failureGen, String commandFile, Long seed) throws UnknownHostException, SocketException, 
-	IOException, IllegalArgumentException {
-		this(nodeImpl, trawlerName, trawlerPort, localUDPPort, seed);
-		
+	/**
+	 * Create a new emulator that takes commands through a file
+	 * 
+	 * @param nodeImpl
+	 *            The Class object for the student's node implementation
+	 * @param routerName
+	 *            Name of the machine that the Router is on
+	 * @param routerPort
+	 *            The port that the Router is listening on
+	 * @param failureGen
+	 *            How failures should be generated
+	 * @param commandFile
+	 *            File containing the list of commands
+	 * @param seed
+	 *            Seed for the RNG. This can be null if the failure generator is
+	 *            not a RNG
+	 * 
+	 * @throws UnknownHostException
+	 *             If the router's name cannot be resolved
+	 * @throws IOException
+	 *             If there is an error in writing to the TCP socket
+	 * @throws IllegalArgumentException
+	 *             If the local port given is already in use
+	 */
+	public Emulator(Class<? extends Node> nodeImpl, String routerName,
+			int routerPort, FailureLvl failureGen, String commandFile,
+			Long seed) throws UnknownHostException, IOException,
+			IllegalArgumentException {
+		this(nodeImpl, routerName, routerPort, seed);
+
 		cmdInputType = InputType.FILE;
 		userControl = failureGen;
-		
+
 		EmulationCommandsParser commandFileParser = new EmulationCommandsParser();
 		sortedEvents = commandFileParser.parseFile(commandFile);
 	}
-
-	/**
-	 * <pre>   
-	 * Starts the emulated node
-	 * do:
-	 *   Read commands from the fishnet file if there is one
-	 *   Process any defered events
-	 *   Process 1 pending incoming message. Timeout when next event is supposed to occur
-	 * loop
-	 * </pre>   
-	 */
-	/*public void start() {
-		node.start();
-
-		Event nextEvent = null;
-		while(true) {
-			try {
-					if(channelID == EmulatedNodeServer.ID) {
-						processPacket(server.getPacket());
-					}else if(channelID == IOThreadEmulator.ID) {
-						parser.parseLine(keyboard.readLine());
-					}
-			}catch(Exception e) {
-				System.err.println("Exception occured in Emulator. Stack trace: ");
-				e.printStackTrace();
-			}
-		}
-	}*/
-	
 	
 	/**
 	 * Starts the emulated node
@@ -145,6 +136,8 @@ public class Emulator extends Manager {
 		
 		if(cmdInputType == InputType.FILE) {
 			while(!inTransitMsgs.isEmpty() || !sortedEvents.isEmpty() || !waitingTOs.isEmpty()) {
+				System.out.println("\nTime: " + now());
+				
 				ArrayList<Event> currentRoundEvents = new ArrayList<Event>();
 				
 				// If a message was delivered successfully and therefore changed the state,
@@ -169,45 +162,75 @@ public class Emulator extends Manager {
 				
 				checkCrash(currentRoundEvents);
 				
-				//TODO checkTimeouts(currentRoundEvents);
+				checkTimeouts(currentRoundEvents);
 				
-				//TODO executeEvents(currentRoundEvents);
+				executeEvents(currentRoundEvents);
 				
+				// do a sleep and then currentTimeMillis is what we want
 				setTime(now()+1);
 			}
 		}else if(cmdInputType == InputType.USER) {
 			while(true){
+				System.out.println("\nTime: " + now());
+				
 				ArrayList<Event> currentRoundEvents = new ArrayList<Event>();
 				
-				checkCrash(currentRoundEvents);
+				checkInTransit(currentRoundEvents);
 
 				// just in case an exception is thrown or input is null
-				Event ev = null;
+				Event ev;
+				boolean advance = false;
+				System.out.println("Please input a sequence of commands terminated by a blank line or the TIME command:");
+
+				//TODO: think about what order to do this in. Especially since it blocks on user input
 				
-				try{
-					// A command will be converted into an Event and passed to the node later in the loop
-					// A quit command will be matched later in this try block
-					// Empty/whitespace will be treated as a skipped line, which will return null and cause a continue
-					System.out.println("Please input a command, or just press enter:");
-					String input = keyboard.readLine();
-					// Process user input if there is any
-					if(input != null) {
-						ev = parser.parseLine(input);
+				do{
+					// just in case an exception is thrown or input is null
+					ev = null;
+
+					try{
+						// A command will be converted into an Event and passed to the node later in the loop
+						// A quit command will be matched later in this try block
+						// Empty/whitespace will be treated as a skipped line, which will return null and cause a continue
+						String input = keyboard.readLine();
+						// Process user input if there is any
+						if(input != null) {
+							ev = parser.parseLine(input);
+						}
+					}catch(IOException e){
+						System.err.println("Error on user input: " + e);
 					}
-				}catch(IOException e){
-					System.err.println("Error on user input: " + e);
-				}
-				
-				if(ev == null){
-					continue;
-				}
-				
-				handleEvent(ev);
+
+					if(ev == null){
+						advance = true;
+					}else{
+						if(ev.t == Event.EventType.TIME) {
+							advance = true;
+						} else {
+							currentRoundEvents.add(ev);
+						}
+					}
+				}while(!advance);
+
+				checkCrash(currentRoundEvents);
+
+				checkTimeouts(currentRoundEvents);
+
+				executeEvents(currentRoundEvents);
+
+				setTime(now()+1);
 			}
 		}
 	}
 	
 	private void checkInTransit(ArrayList<Event> currentRoundEvents) {
+		// Load in all the newly received messages
+		Packet pkt = server.getPacket();
+		while(pkt != null) {
+			inTransitMsgs.add(pkt);
+			pkt = server.getPacket();
+		}
+		
 		if(inTransitMsgs.isEmpty()){
 			return;
 		}
@@ -247,7 +270,6 @@ public class Emulator extends Manager {
 				}
 				
 				if(toBeRemoved.size() == currentPackets.size()){
-					currentPackets.clear();
 					return;
 				}
 				
@@ -273,7 +295,7 @@ public class Emulator extends Manager {
 				
 				currentPackets.removeAll(toBeRemoved);
 			}catch(IOException e){
-				e.printStackTrace(System.err);
+				e.printStackTrace();
 			}
 		}
 		
@@ -305,17 +327,94 @@ public class Emulator extends Manager {
 		if(userControl.compareTo(FailureLvl.CRASH) < 0){
 			int rand = randNumGen.nextInt(100);
 			if(rand < failureRate){
-				currentRoundEvents.add(new Event(-1, Event.EventType.FAILURE));
+				currentRoundEvents.add(new Event(address, Event.EventType.FAILURE));
 			}
 		}else{
 			try{
 				System.out.println("Crash? (y/n)");
 				String input = keyboard.readLine();
 				if(input.charAt(0) == 'y'){
-					currentRoundEvents.add(new Event(-1, Event.EventType.FAILURE));
+					currentRoundEvents.add(new Event(address, Event.EventType.FAILURE));
 				}
 			}catch(IOException e){
 				e.printStackTrace();
+			}
+		}
+	}
+	
+	/**
+	 * Check to see if any timeouts are supposed to fire during the current
+	 * time step
+	 */
+	private void checkTimeouts(ArrayList<Event> currentRoundEvents) {
+		ArrayList<Timeout> currentTOs = waitingTOs;
+		waitingTOs = new ArrayList<Timeout>();
+		
+		Iterator<Timeout> iter = currentTOs.iterator();
+		while(iter.hasNext()) {
+			Timeout to = iter.next();
+			if(now() >= to.fireTime) {
+				iter.remove();
+				currentRoundEvents.add(new Event(to));
+			}
+		}
+		
+		waitingTOs.addAll(currentTOs);
+	}
+	
+	/**
+	 * Reorders and executes all the events for the current round.
+	 * 
+	 * Note that commands can be executed in a different order than they appear
+	 * in the command file!
+	 * 
+	 * @param currentRoundEvents
+	 */
+	private void executeEvents(ArrayList<Event> currentRoundEvents) {
+		if(userControl == FailureLvl.EVERYTHING){
+			boolean doAgain = false;
+			do{
+				try{
+					for(int i = 0; i < currentRoundEvents.size(); ++i){
+						System.out.println(i + ": " + currentRoundEvents.get(i).toString());
+					}
+					System.out.println("In what order should the events happen? (enter for in-order)");
+					String input = keyboard.readLine().trim();
+
+					if(input.equals("")){
+						for(Event ev: currentRoundEvents){
+							handleEvent(ev);
+						}
+					}else{
+						String[] order = input.split("\\s+");
+
+						HashSet<Event> dupeMissCheck = new HashSet<Event>();
+						for(String s: order){
+							dupeMissCheck.add(currentRoundEvents.get(Integer.parseInt(s)));
+						}
+						
+						if(dupeMissCheck.size() != currentRoundEvents.size()) {
+							System.out.println("Not all of the events were specified!");
+							doAgain = true;
+							continue;
+						}
+						
+						for(String s: order){
+							Event ev = currentRoundEvents.get(Integer.parseInt(s));
+							handleEvent(ev);
+						}
+					}
+				}catch(IOException e){
+					e.printStackTrace();
+					doAgain = true;
+				}
+			}while(doAgain);
+		}else{
+			Collections.shuffle(currentRoundEvents, randNumGen);
+			System.out.println("Executing with order: ");
+			for(Event ev: currentRoundEvents) {
+				System.out.println(ev.toString());
+				handleEvent(ev);
 			}
 		}
 	}
@@ -328,44 +427,56 @@ public class Emulator extends Manager {
 		case START:
 			//FIXME: NO! unless you would like to hot-restart??
 			break;
+		case EXIT:
+			failNode();
+			break;
 		case COMMAND:
 			sendNodeCmd(ev.command);
 			break;
 		case ECHO:
 			parser.printStrArray(ev.msg, System.out);
 			break;
-		case EXIT:
-			stop();
+		case DELIVERY:
+			deliverPkt(ev.p);
+			break;
+		case TIMEOUT:
+			logEvent(ev.to.node, "TIMEOUT " + ev.to.cb.toString());
+						
+			try{
+				ev.to.cb.invoke();
+			}catch(InvocationTargetException e) {
+				Throwable t = e.getCause();
+				if(t == null) {
+					e.printStackTrace();
+				} else if(t instanceof NodeCrashException) {
+					// let it slide
+				} else {
+					t.printStackTrace();
+				}
+			}catch(IllegalAccessException e) {
+				e.printStackTrace();
+			}
+			break;
 		default:
-			System.err.println("Shouldn't happen. DELIVERY here?");
+			System.err.println("Shouldn't happen. TIME here?");
 		}
 	}
 
 	/**
 	 * Send the pkt to the specified node
 	 * @param from The node that is sending the packet
-	 * @param to Int spefying the destination node
+	 * @param to Int specifying the destination node
 	 * @param pkt The packet to be sent, serialized to a byte array
 	 * @return True if the packet was sent, false otherwise
 	 * @throws IllegalArgumentException If the arguments are invalid
 	 */
 	public void sendPkt(Node fromNode, int to, byte[] pkt) throws IllegalArgumentException {
-		int from = fromNode.addr;
 		super.sendPkt(fromNode, to, pkt);  // check arguments
-		EmulatorPacket emulatorPacket = new EmulatorPacket(to, from, pkt);
-		byte[] payload = emulatorPacket.pack();
-		if(payload == null) {
-			return;
-		}
-		DatagramPacket physicalPacket = new DatagramPacket(payload, payload.length);
+		
 		try {
-			if(to == Packet.BROADCAST_ADDRESS) {
-				broadcastPacket(physicalPacket);	    
-			}else {
-				sendToTrawler(physicalPacket, to);
-			}
+			sendToRouter(to, pkt);
 		}catch(IOException e) {
-			System.err.println("IOException occured while trying to send to node: " + to + ". Exception: " + e);
+			System.err.println("IOException occured while trying to send to node: " + to);
 			e.printStackTrace();
 			return;
 		}
@@ -383,52 +494,62 @@ public class Emulator extends Manager {
 		return true;
 	}
 
-	private int getFishAddress() throws NumberFormatException, IOException {
-		trawlerWriter.println(udpSocket.getLocalPort());
-		return Integer.parseInt(trawlerReader.readLine());
+	private void sendToRouter(int destAddr, byte[] pkt) throws IOException {
+		server.send(pkt);
 	}
 
-	// Send a packet but defer sending it if we have sent something else recently
-	private void sendToTrawler(DatagramPacket packet, int destAddr) throws IOException {
-//		packet.setAddress(arpData.getIPAddress());
-//		packet.setPort(arpData.getPort());
-		this.udpSocket.send(packet);
-	}
-
-	private void broadcastPacket(DatagramPacket packet) throws IOException {
-//		Iterator<Integer> iter = arp.keySet().iterator();
-//		while(iter.hasNext()) {
-//			Integer neighborAddr = iter.next();
-//			this.physicalSend(packet, neighborAddr.intValue());
-//		}
-	}
-
-	private void processPacket(DatagramPacket packet) {
-		InetAddress ipAddress = packet.getAddress();
-		int port = packet.getPort();
-		EmulatorPacket emulatorPacket = EmulatorPacket.unpack(packet.getData());
-		if(emulatorPacket == null) {
-			// Corrupt data.
-			System.err.println("Was unable to extract packet received from " + ipAddress + ":" + port);
-			return;
-		}
-		Integer srcAddr = new Integer(emulatorPacket.getSrc());
-		int destAddr = emulatorPacket.getDest();
-		if(destAddr == this.fishAddress || destAddr == Packet.BROADCAST_ADDRESS) {
+	private void deliverPkt(Packet pkt) {
+		if(pkt.getDest() == address || pkt.getDest() == Packet.BROADCAST_ADDRESS) {
 			try{
-//				node.onReceive(srcAddr, emulatorPacket.getPayload());
+				node.onReceive(pkt.getSrc(), pkt.getProtocol(), pkt.getPayload());
 			}catch(NodeCrashException e) { }
 		}
 		// drop if not for me. This can happen if we took a port that was recently occupied by another node
 	}
-	
+
 	private void failNode(){
-		stop();
+		try{
+			node.stop();	// FIXME: don't run anything more after this
+		} catch (NodeCrashException e) {
+			stop();
+		}
+
+		System.err.println("Did you forget to call super.stop() in your node implementation?");
+	}
+
+	public void stop() {
+		System.out.println(stopString());
+		System.out.println(node.addr + ": " + node.toString());
+		logEvent(node, "STOPPED");
+		
+		server.close();
+		
+		// stop the synoptic logger
+		this.synLogger.stop();
+		System.exit(0);
 	}
 
 	@Override
 	protected void checkWriteCrash(Node n, String description) {
-		// TODO Auto-generated method stub
-		
+		if(userControl.compareTo(FailureLvl.CRASH) < 0){
+			if(randNumGen.nextDouble() < failureRate) {
+				System.out.println("Randomly failing before write");
+				failNode();
+			}
+		}else{
+			try{
+				System.out.println("Crash before " + description + "? (y/n)");
+				String input = keyboard.readLine().trim();
+				if(input.length() != 0 && input.charAt(0) == 'y'){
+					failNode();
+				}
+			}catch(IOException e){
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	private void logEvent(Node node, String eventStr) {
+		// TODO
 	}
 }

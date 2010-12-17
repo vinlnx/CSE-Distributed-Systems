@@ -2,6 +2,8 @@ package edu.washington.cs.cse490h.lib;
 
 import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
  * <pre>   
@@ -13,13 +15,16 @@ public class Packet {
 	public static final int BROADCAST_ADDRESS = 255;
 	public static final int MAX_ADDRESS = 255;
 	public static final int HEADER_SIZE = 4;
-	public static final int UDPIP_HEADER_SIZE = 28;
-	public static final int MAX_PACKET_SIZE = (java.lang.Short.MAX_VALUE+1)*2 - 1 - UDPIP_HEADER_SIZE;  // bytes
-	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;  // bytes
+	public static final int MAX_PAYLOAD_SIZE = (java.lang.Short.MAX_VALUE+1)*2 - 1;  // bytes
+	public static final int MAX_PACKET_SIZE = MAX_PAYLOAD_SIZE + HEADER_SIZE;  // bytes
 
 	private int dest;
 	private int src;
 	private int protocol;
+	private int flags;
+	
+	public static final byte FIN = 1;
+	
 	private byte[] payload;
 
 	/**
@@ -41,15 +46,40 @@ public class Packet {
 		this.dest = dest;
 		this.src = src;
 		this.protocol = protocol;
+		this.flags = 0;
 		this.payload = payload;
 	}
+	
+	public Packet(int node) {
+		dest = node;
+		src = node;
+		protocol = 0;
+		flags = FIN;
+		payload = new byte[0];
+	}
 
+	public Packet(int dest, int src, int protocol, int flags, byte[] payload) throws IllegalArgumentException {
+
+		if(!isValid(dest, src, payload.length + Packet.HEADER_SIZE)) {
+			throw new IllegalArgumentException("Arguments passed to constructor of Packet are invalid");
+		}
+
+		this.dest = dest;
+		this.src = src;
+		this.protocol = protocol;
+		this.flags = flags;
+		this.payload = payload;
+	}
+	
 	/**
 	 * Provides a string representation of the packet.
 	 * @return A string representation of the packet.
 	 */
 	@Override
 	public String toString() {
+		if((flags & FIN) != 0) {
+			return new String("Packet: " + src + ": FIN");
+		}
 		return new String("Packet: " + src + "->" + dest + " protocol: " + protocol + 
 				" contents: " + Utility.byteArrayToString(payload));
 	}
@@ -76,6 +106,13 @@ public class Packet {
 	}
 
 	/**
+	 * @return The flags for this packet
+	 */
+	public int getFlags() {
+		return flags;
+	}
+	
+	/**
 	 * @return The payload of this packet
 	 */
 	public byte[] getPayload() {
@@ -95,12 +132,13 @@ public class Packet {
 	public byte[] pack() {	
 
 		ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-		byteStream.write(this.dest);
-		byteStream.write(this.src);
-		byteStream.write(this.protocol);
-		byteStream.write(this.payload.length + Packet.HEADER_SIZE);
+		byteStream.write(dest);
+		byteStream.write(src);
+		byteStream.write(protocol);
+		byteStream.write(flags);
+		byteStream.write(payload.length);
 
-		byteStream.write(this.payload, 0, this.payload.length);
+		byteStream.write(payload, 0, payload.length);
 
 		return byteStream.toByteArray();
 	}
@@ -112,29 +150,80 @@ public class Packet {
 	 * @return Packet object created or null if the byte[] representation was corrupted
 	 */
 	public static Packet unpack(byte[] packedPacket){
-
 		ByteArrayInputStream byteStream = new ByteArrayInputStream(packedPacket);
 
 		int dest = byteStream.read();
 		int src = byteStream.read();
 		int protocol = byteStream.read();
+		int flags = byteStream.read();
 		int packetLength = byteStream.read();
 
 		byte[] payload = new byte[byteStream.available()];
 		byteStream.read(payload, 0, payload.length);
 
-		if((HEADER_SIZE + payload.length) != packetLength) {
+		if(payload.length != packetLength) {
 			return null;
 		}	
 
 		try {
-			return new Packet(dest, src, protocol, payload);
+			return new Packet(dest, src, protocol, flags, payload);
 		}catch(IllegalArgumentException e) {
 			// will return null
 		}
 		return null;
 	}
+	
+	/**
+	 * Unpacks a byte array to create a Packet object
+	 * Assumes the array has been formatted using pack method in Packet
+	 * @param packedPacket String representation of the packet
+	 * @return Packet object created or null if the byte[] representation was corrupted
+	 */
+	public static Packet unpack(InputStream stream) throws IOException{
+		int dest = stream.read();
+		while(dest == -1){
+			Thread.yield();
+			dest = stream.read();
+		}
+		int src = stream.read();
+		while(src == -1){
+			Thread.yield();
+			src = stream.read();
+		}
+		int protocol = stream.read();
+		while(protocol == -1){
+			Thread.yield();
+			protocol = stream.read();
+		}
+		int flags = stream.read();
+		while(flags == -1){
+			Thread.yield();
+			flags = stream.read();
+		}
+		int payloadLength = stream.read();
+		while(payloadLength == -1){
+			Thread.yield();
+			payloadLength = stream.read();
+		}
 
+		byte[] payload = new byte[payloadLength];
+		int off = 0;
+		while(off < payloadLength) {
+			Thread.yield();
+			int read = stream.read(payload, off, payload.length - off);
+			if(read != -1) {
+				off += read;
+			}
+		}
+
+		try {
+			return new Packet(dest, src, protocol, flags, payload);
+		}catch(IllegalArgumentException e) {
+			// will return null
+		}
+		return null;
+	}
+	
 	/**
 	 * Tests if the address is a valid one
 	 * @param addr Address to check

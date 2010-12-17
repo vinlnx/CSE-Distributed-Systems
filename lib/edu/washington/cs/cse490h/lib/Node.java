@@ -41,7 +41,7 @@ public abstract class Node {
 	
 	// this node's local vector time
 	// note: ArrayList data structure is not synchronized!
-	private static ArrayList localVectorTime = null;
+	private static ArrayList<Integer> localVectorTime = null;
 	
 	// In case the student's implementation needs to know this.
 	// TODO: remove numNodes
@@ -80,7 +80,7 @@ public abstract class Node {
 		this.manager = manager;
 		this.addr = addr;
 		setTimeout(4);
-		localVectorTime = new ArrayList();
+		localVectorTime = new ArrayList<Integer>();
 		// create an empty localVectorTime
 		for (int i = 0; i < numNodes; i++)
 			localVectorTime.add(0);

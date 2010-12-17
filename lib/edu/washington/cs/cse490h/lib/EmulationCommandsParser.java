@@ -6,6 +6,7 @@ package edu.washington.cs.cse490h.lib;
  * Emulator is interested in all commands except topology commands
  * </pre>   
  */
+//FIXME: make this make sense, ignore stuff that isnt for me 
 public class EmulationCommandsParser extends CommandsParser {
 	/**
 	 * Process one line of topology file or keyboard input.
