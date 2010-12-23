@@ -12,7 +12,7 @@ import java.io.OutputStream;
  * In a separate thread, this class listens to incoming messages from neighbors and stores the data received
  * </pre>   
  */
-public class NodeServer extends Thread {
+public class NodeServer implements Runnable {
 	private Socket socket;
 	private ArrayList<Packet> packetsReceived;
 	private InputStream in;
@@ -21,13 +21,14 @@ public class NodeServer extends Thread {
 	private Emulator parent;
 	
 	private boolean gotFIN;
+	private boolean finished;
 
-	public int getAddress() {
+	protected int getAddress() {
 		return address;
 	}
 
 	/**
-	 * Creates a new EmulatedNodeServer
+	 * Creates a new NodeServer
 	 * @param socket The UDP socket to listen on
 	 */
 	public NodeServer(String name, int port, Emulator parent) throws IOException{
@@ -37,11 +38,13 @@ public class NodeServer extends Thread {
 		out = socket.getOutputStream();
 		gotFIN = false;
 		this.parent = parent;
+		finished = false;
 		
 		address = in.read();
-		while(address == -1){
-			Thread.yield();
-			address = in.read();
+		
+		if(address != Manager.BROADCAST_ADDRESS) {
+			Thread t = new Thread(this);
+			t.start();
 		}
 	}
 
@@ -49,77 +52,101 @@ public class NodeServer extends Thread {
 	 * This starts the server
 	 */
 	public void run() {
-		while(true) {
-			try {
+		try {
+			while(!finished && !socket.isClosed()) {
 				Packet packet = Packet.unpack(in);
-				
+
+				if(packet == null) {
+					// The other side closed the connection
+					break;
+				}
 				//System.out.println("Received packet: " + packet);
-				
+
 				if((packet.getFlags() & Packet.FIN) != 0) {
 					gotFIN = true;
-					socket.shutdownInput();
 					return;
 				}
-				
+
 				// store it
 				storePacket(packet);
-			}catch(IOException e) {
-				System.err.println("Encountered IOException when trying to receive packet. User should kill explicitly. \nStack Trace:");
-				e.printStackTrace();
-				continue;
 			}
+		}catch(IOException e) {
+			System.err.println("Encountered IOException when trying to receive packet.");
+			e.printStackTrace();
 		}
-	}
 
-	/**
-	 * Tests if there are more packets stored
-	 * @return True if there are more packets stored in memory
-	 */
-	public synchronized boolean hasPackets() {
-		return !packetsReceived.isEmpty();
+		try {
+			socket.close();
+		} catch (IOException e) {
+		}
+		parent.deleteNode();
 	}
 
 	/**
 	 * Gets the first packet stored
 	 * @return The first packet stored
 	 */
-	public synchronized Packet getPacket() {
-		if(packetsReceived.isEmpty()) {
-			return null;
+	protected Packet getPacket() {
+		synchronized (packetsReceived) {
+			if (packetsReceived.isEmpty()) {
+				return null;
+			}
+			return packetsReceived.remove(0);
 		}
-		return packetsReceived.remove(0);
 	}
 
-	protected void send(byte[] pkt) throws IOException{
-		out.write(pkt);
-		out.flush();
+	protected void send(byte[] pkt) {
+		try {
+			out.write(pkt);
+			out.flush();
+		} catch (IOException e) {
+			finished = true;
+			e.printStackTrace();
+		}
 	}
 	
-	private synchronized void storePacket(Packet packet) {
-		packetsReceived.add(packet);
+	private void storePacket(Packet packet) {
+		synchronized (packetsReceived) {
+			packetsReceived.add(packet);
+		}
 	}
 	
-	void close() {
-		try{
+	protected void close() {
+		try {
 			Packet fin = new Packet(address);
 			send(fin.pack());
-			
-			while(!gotFIN){
+
+			while (!gotFIN) {
+				if (socket.isClosed()) {
+					if (!gotFIN) {
+						throw new IOException("Socket closed before we got a FIN back!");
+					}
+				}
 				Thread.yield();
 			}
-			
-			for(Packet pkt: packetsReceived) {
-				send(pkt.pack());
+
+			synchronized (packetsReceived) {
+				for (Packet pkt : packetsReceived) {
+					send(pkt.pack());
+				}
 			}
-			for(Packet pkt: parent.inTransitMsgs) {
+			for (Packet pkt : parent.inTransitMsgs) {
 				send(pkt.pack());
 			}
 			send(fin.pack());
-			
+
 			socket.close();
 		} catch (IOException e) {
 			System.err.println("Error while closing socket!");
 			e.printStackTrace();
 		}
+		
+		finished = true;
+		packetsReceived.clear();
+		parent.inTransitMsgs.clear();
+	}
+	
+	protected void finish() {
+		finished = true;
 	}
 }

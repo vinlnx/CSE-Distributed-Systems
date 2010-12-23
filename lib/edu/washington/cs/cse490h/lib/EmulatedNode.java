@@ -3,9 +3,7 @@ package edu.washington.cs.cse490h.lib;
 import java.net.Socket;
 import java.net.InetAddress;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedList;
-import java.util.List;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.IOException;
@@ -28,7 +26,8 @@ public class EmulatedNode implements Runnable{
 	private InetAddress ipAddress;       // The IP address of node. 
 	private int port;                  // The port that node is on.
 	
-	private boolean error;
+	private boolean cleanQuit;
+	private boolean finished;
 
 	/**
 	 * Create a new EmulatedNode
@@ -49,84 +48,85 @@ public class EmulatedNode implements Runnable{
 		out = socket.getOutputStream();
 		in = socket.getInputStream();
 
-		error = false;
+		cleanQuit = false;
+		finished = false;
 
 		Thread t = new Thread(this);
 		t.start();
 	}
 
-	//FIXME: shouldn't assume that the recipient stays up
 	public void run() {
 		try {
-			while(isUp() && !error) {
+			while(isUp()) {
 				Packet packet = Packet.unpack(in);
 
 				if(packet == null) {
-					error = true; // this doesn't matter right now but we set it anyway
-					throw new IOException("Corrupted packet.  Cannot recover from misalignment.");
+					// The other side closed the connection
+					break;
 				}
 
 				if((packet.getFlags() & Packet.FIN) != 0) {
-					close();
-				} else if(packet.getDest() == Packet.BROADCAST_ADDRESS) {
-					//TODO: possibly queue to dead nodes, this same problem arises within the simulator framework as well
-					Collection<EmulatedNode> c = parent.emulatedNodes.values();
+					LinkedList<Packet> queue = close();
+					// if a send occurs here it's OK cause finished = true
+					// we don't call nodeQuit inside close because it could cause deadlock
+					parent.nodeQuit(addr, queue);
+				} else if(packet.getDest() == Manager.BROADCAST_ADDRESS) {
+					Collection<Integer> c = parent.emulatedNodes.keySet();
 					System.out.println("Broadcasting: " + packet);
+
 					synchronized(parent.emulatedNodes) {
-						for(EmulatedNode dest: c) {
-							if(dest.addr != this.addr) {
-								System.out.println("To: " + dest.addr);
-								dest.send(packet);
+						for(Integer dest: c) {
+							if(dest != addr) {
+								parent.emulatedNodes.get(dest).send(packet);
 							}
 						}
 					}
 				} else {
-					EmulatedNode dest = parent.getEmulatedNode(packet.getDest());
-					if (dest != null) {
-						System.out.println("Sending: " + packet);
-						dest.send(packet);
-					} else {
-						// The node failed, but let's send anyways to whatever node takes this address in the future
-						List<Packet> downQueue = parent.destDownQueue.get(packet.getDest());
-						if(downQueue == null) {
-							downQueue = Collections.synchronizedList( new LinkedList<Packet>() );
-							parent.destDownQueue.put(packet.getDest(), downQueue);
-						}
-
-						System.out.println("Queueing to failed node: " + packet);
-						downQueue.add(packet);
-					}
+					parent.emulatedNodes.get(packet.getDest()).send(packet);
 				}
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+
+		if(!cleanQuit) {
+			try {
+				socket.close();
+			} catch (IOException e) {
+			}
+			if(parent != null) {
+				parent.nodeQuit(addr, null);
+			}
+		}
 	}
 
-	public synchronized void send(Packet pkt){
+	protected synchronized boolean send(Packet pkt){
+		if(finished) {
+			return false;
+		}
+
 		try {
 			out.write(pkt.pack());
 			out.flush();
 		} catch (IOException e) {
-			error = true;
+			finished = true;
+			e.printStackTrace();
 		}
+		return true;
 	}
 
 	/**
-	 * Close the the connection to the emulated node
+	 * Close the the connection to the node server
 	 */
-	public synchronized void close() {
+	private synchronized LinkedList<Packet> close() {
+		Packet fin = new Packet(addr);
+		send(fin);
+		finished = true;
+
 		try {
-			Packet fin = new Packet(addr);
-			send(fin);
 			socket.shutdownOutput();
 
-			List<Packet> downQueue = parent.destDownQueue.get(addr);
-			if(downQueue == null) {
-				downQueue = Collections.synchronizedList( new LinkedList<Packet>() );
-				parent.destDownQueue.put(addr, downQueue);
-			}
-			parent.nodeQuit(addr);
+			LinkedList<Packet> queue = new LinkedList<Packet>();
 
 			while(true) {
 				Packet packet = Packet.unpack(in);
@@ -136,25 +136,27 @@ public class EmulatedNode implements Runnable{
 				}
 
 				if((packet.getFlags() & Packet.FIN) != 0) {
+					cleanQuit = true;
 					socket.close();
-					return;
+					return queue;
 				} else {
-					downQueue.add(packet);
+					queue.add(packet);
 				}
 			}
 		} catch (IOException e) {
 			System.err.println("Encountered IO Exception while trying to close socket in EmulatedNode: "
-								+ addr + "Exception Stack Trace:");
+					+ addr + "Exception Stack Trace:");
 			e.printStackTrace();
-			error = true;
 		}
+		
+		return null;
 	}
 
 	/**
 	 * Get the virtual address of this node
 	 * @return The virtual address of this node
 	 */
-	public int getAddr() {
+	protected int getAddr() {
 		return addr;
 	}
 
@@ -162,7 +164,7 @@ public class EmulatedNode implements Runnable{
 	 * Get the IP address of the machine that this emulated node is on
 	 * @return The IP address of the machine that this emulated node is on
 	 */
-	public InetAddress getIPAddress() {
+	protected InetAddress getIPAddress() {
 		return ipAddress;
 	}
 
@@ -170,7 +172,7 @@ public class EmulatedNode implements Runnable{
 	 * Get the port that this emulated node is using to talk to its neighbors
 	 * @return The port that this emulated node is using to talk to its neighbors
 	 */
-	public int getPort() {
+	protected int getPort() {
 		return port;
 	}
 
@@ -183,11 +185,21 @@ public class EmulatedNode implements Runnable{
 	}
 
 	/**
+	 * Called by the router to tell the emulated node to stop and that the
+	 * router has already removed the emulated node
+	 */
+	protected void finish() {
+		parent = null;
+		finished = true;
+	}
+	
+	/**
 	 * Check if the emulated node is still alive
 	 * @return True if the node is still alive
 	 */
-	public boolean isUp() {
+	protected boolean isUp() {
 		return (!socket.isClosed() &&
-				!socket.isInputShutdown());
+				!socket.isInputShutdown() &&
+				!finished);
 	}
 }

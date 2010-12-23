@@ -2,6 +2,7 @@ package edu.washington.cs.cse490h.lib;
 
 import java.io.File;
 import java.io.UnsupportedEncodingException;
+import java.util.Random;
 
 /**
  * <pre>   
@@ -11,12 +12,10 @@ import java.io.UnsupportedEncodingException;
 public class Utility {
 
 	private static final String CHARSET = "US-ASCII";
-
-	/**
-	 * Return System time in microseconds
-	 */
-	public static long fishTime() { 
-		return System.currentTimeMillis() * 1000;
+	static Random randNumGen;
+	
+	public static Random getRNG() {
+		return randNumGen;
 	}
 
 	/**

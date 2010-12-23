@@ -3,7 +3,6 @@ package edu.washington.cs.cse490h.lib;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Random;
 
 /**
  * <pre>   
@@ -11,24 +10,26 @@ import java.util.Random;
  * </pre>   
  */
 public abstract class Manager {
-	final Class<? extends Node> nodeImpl;
-    final double failureRate;
-    final double recoveryRate;
-    final double dropRate;
-    final double delayRate;
+	protected static final int BROADCAST_ADDRESS = 255;
+	protected static final int MAX_ADDRESS = 255;
 	
-    protected Random randNumGen;
+	protected final Class<? extends Node> nodeImpl;
+	protected final double failureRate;
+	protected final double recoveryRate;
+	protected final double dropRate;
+	protected final double delayRate;
+	
     protected long seed;
     
 	private int pktsSent;
-	ArrayList<Event> sortedEvents;
-	ArrayList<Timeout> waitingTOs;
-	ArrayList<Packet> inTransitMsgs;
+	protected ArrayList<Event> sortedEvents;
+	protected ArrayList<Timeout> waitingTOs;
+	protected ArrayList<Packet> inTransitMsgs;
 	protected CommandsParser parser;   // parser for commands file
 
 	protected final BufferedReader keyboard;
 	
-	SynopticLogger synLogger = new SynopticLogger();
+	protected SynopticLogger synLogger = new SynopticLogger();
 	
 	protected FailureLvl userControl;
 	protected enum FailureLvl{
@@ -41,12 +42,12 @@ public abstract class Manager {
 	protected InputType cmdInputType;
 	protected enum InputType{ USER, FILE }
 	
-	class Timeout{
-		Node node;
-		long fireTime;
-		Callback cb;
+	protected class Timeout{
+		protected Node node;
+		protected long fireTime;
+		protected Callback cb;
 		
-		Timeout(Node node, long fireTime, Callback cb) {
+		protected Timeout(Node node, long fireTime, Callback cb) {
 			this.node = node;
 			this.fireTime = fireTime;
 			this.cb = cb;
@@ -93,7 +94,7 @@ public abstract class Manager {
 	 * Starts the Manager. This runs in an infinite loop until network is stopped
 	 * Instantiates nodes and gets them running
 	 */
-	public abstract void start();
+	protected abstract void start();
 
 	protected String stopString(){
 		String s = "MessageLayer exiting.\nNumber of packets sent: " + String.valueOf(pktsSent);
@@ -106,7 +107,7 @@ public abstract class Manager {
 	/**
 	 * Stops MessageLayer. Normally this method should not return
 	 */
-	public void stop() {
+	protected void stop() {
 		System.out.println(stopString());
 		System.exit(0);
 	}
@@ -115,16 +116,15 @@ public abstract class Manager {
 	 * Send the pkt to the specified node
 	 * @param from	The node that is sending the packet
 	 * @param to	Integer specifying the destination node
-	 * @param pkt	The packet to be sent, serialized to a byte array
+	 * @param pkt	The payload to be sent
 	 * @return True	if the packet was sent, false otherwise
 	 * @throws IllegalArgumentException	If the arguments are invalid
 	 */
-	public void sendPkt(Node fromNode, int to, byte[] pkt) throws IllegalArgumentException {
+	protected void sendPkt(Node fromNode, int to, int protocol, byte[] payload) throws IllegalArgumentException {
 		int from = fromNode.addr;
-		if ( (pkt.length > Packet.MAX_PACKET_SIZE)
+		if ( (payload.length > Packet.MAX_PAYLOAD_SIZE)
 			|| !Packet.validAddress(to)
-			|| !Packet.validAddress(from)
-			|| !Packet.unpack(pkt).isValid()) {
+			|| !Packet.validAddress(from)) {
 
 			throw new IllegalArgumentException("Either pkt is not valid, address is not valid, or TTL is not valid");
 		}

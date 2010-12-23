@@ -4,7 +4,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
+import java.util.HashMap;
 
 import edu.washington.cs.cse490h.lib.Manager;
 
@@ -26,7 +26,7 @@ public abstract class Node {
 	public static double getRecoveryRate(){ return 10/100.0; }
 	public static double getDropRate(){ return 10/100.0; }
 	public static double getDelayRate(){ return 25/100.0; }
-
+	
 	/**
 	 * Special error that is thrown when stop() is called. It is an unchecked
 	 * exception, which allows us to interrupt execution of the node opaquely.
@@ -41,26 +41,7 @@ public abstract class Node {
 	
 	// this node's local vector time
 	// note: ArrayList data structure is not synchronized!
-	private static ArrayList<Integer> localVectorTime = null;
-	
-	// In case the student's implementation needs to know this.
-	// TODO: remove numNodes
-	private static int numNodes;
-	public final static int getNumNodes(){
-		return numNodes;
-	}
-	static final void setNumNodes(int num){
-		numNodes = num;
-	}
-	
-	// Set the timeout of all timer interrupts.
-	private long timeout;
-	public final long getTimeout() {
-		return timeout;
-	}
-	public final void setTimeout(long timeout) {
-		this.timeout = timeout;
-	}
+	private static HashMap<Integer, Integer> localVectorTime = null;
 
 	private Manager manager;
 	public int addr;
@@ -79,11 +60,9 @@ public abstract class Node {
 	final void init(Manager manager, int addr){
 		this.manager = manager;
 		this.addr = addr;
-		setTimeout(4);
-		localVectorTime = new ArrayList<Integer>();
+		localVectorTime = new HashMap<Integer, Integer>();
 		// create an empty localVectorTime
-		for (int i = 0; i < numNodes; i++)
-			localVectorTime.add(0);
+		localVectorTime.put(addr, 0);
 	}
 
 	/**
@@ -133,9 +112,29 @@ public abstract class Node {
 	 *            The serialized form of the packet
 	 */
 	public void send(int destAddr, int protocol, byte[] payload) {
-		Packet newPkt = new Packet(destAddr, addr, protocol, payload);
+		if(destAddr == Manager.BROADCAST_ADDRESS) {
+			System.err.println("Use the broadcast() method if you would like to broadcast a packet");
+			return;
+		}
+		
 		try {
-			manager.sendPkt(this, destAddr, newPkt.pack());
+			manager.sendPkt(this, destAddr, protocol, payload);
+		}catch(IllegalArgumentException e) {
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * This method should be the one called to broadcast a message to all nodes in the network.
+	 * 
+	 * @param destAddr
+	 *            The address of the destination
+	 * @param pkt
+	 *            The serialized form of the packet
+	 */
+	public void broadcast(int protocol, byte[] payload) {
+		try {
+			manager.sendPkt(this, Manager.BROADCAST_ADDRESS, protocol, payload);
 		}catch(IllegalArgumentException e) {
 			e.printStackTrace();
 		}
@@ -149,8 +148,8 @@ public abstract class Node {
 	 *            The callback object that should be invoked when the interrupt
 	 *            fires
 	 */
-	public void addTimeout(Callback cb){
-		if(getTimeout() <= 0) {
+	public void addTimeout(Callback cb, int timer){
+		if(timer <= 0) {
 			// if the timeout is less than or equal to 0, just invoke the callback
 			// TODO: synoptic logging here
 			try{
@@ -166,7 +165,7 @@ public abstract class Node {
 				e.printStackTrace();
 			}
 		} else {
-			manager.addTimeout(this, getTimeout(), cb);
+			manager.addTimeout(this, timer, cb);
 		}
 	}
 	

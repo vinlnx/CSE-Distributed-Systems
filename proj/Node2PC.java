@@ -6,7 +6,6 @@ import java.util.Random;
 
 import edu.washington.cs.cse490h.lib.Callback;
 import edu.washington.cs.cse490h.lib.Node;
-import edu.washington.cs.cse490h.lib.Packet;
 import edu.washington.cs.cse490h.lib.PersistentStorageReader;
 import edu.washington.cs.cse490h.lib.PersistentStorageWriter;
 import edu.washington.cs.cse490h.lib.Utility;
@@ -37,6 +36,10 @@ public class Node2PC extends Node{
 	public static double getRecoveryRate(){ return 5/100.0; }
 	public static double getDropRate(){ return 5/100.0; }
 	public static double getDelayRate(){ return 10/100.0; }
+	
+	//TODO: should we do something smarter for NUM_NODES?
+	public static int NUM_NODES = 3;
+	public static int TIMEOUT = 4;
 	
 	// 2PC state
 	private Decision vote;
@@ -109,13 +112,13 @@ public class Node2PC extends Node{
 					logOutput("Discovered that we previously committed...");
 					decide = Decision.COMMIT;
 					String message = Decision.COMMIT.toString();
-					send(Packet.BROADCAST_ADDRESS, Protocol.DECISION_PKT, Utility.stringToByteArray(message));
+					broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
 					stop();
 				}else if(line.equals("ABORT")){
 					logOutput("Discovered that we previously aborted...");
 					decide = Decision.ABORT;
 					String message = Decision.ABORT.toString();
-					send(Packet.BROADCAST_ADDRESS, Protocol.DECISION_PKT, Utility.stringToByteArray(message));
+					broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
 					stop();
 				}
 			}
@@ -126,7 +129,7 @@ public class Node2PC extends Node{
 				logOutput("Did not decide yet.  Aborting...");
 				decide = Decision.ABORT;
 				String message = Decision.ABORT.toString();
-				send(Packet.BROADCAST_ADDRESS, Protocol.DECISION_PKT, Utility.stringToByteArray(message));
+				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
 				stop();
 			}
 		} else {
@@ -180,7 +183,7 @@ public class Node2PC extends Node{
 	public void add2PCTimeout(int node) {
 		try{
 			Method onTimeoutMethod = Callback.getMethod("onTimeout", this, new String[]{ "java.lang.String", "java.lang.Integer" });
-			addTimeout(new Callback(onTimeoutMethod, this, new Object[]{ currentState.toString(), node }));
+			addTimeout(new Callback(onTimeoutMethod, this, new Object[]{ currentState.toString(), node }), TIMEOUT);
 		}catch(Exception e){
 			e.printStackTrace(System.err);
 		}
@@ -196,7 +199,7 @@ public class Node2PC extends Node{
 			// the termination protocol
 			if (addr == 0 && protocol == Protocol.DECISIONREQ_PKT) {
 				String message = decide.toString();
-				send(Packet.BROADCAST_ADDRESS, Protocol.DECISION_PKT, Utility.stringToByteArray(message));
+				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
 			}else{
 				logOutput("Ignoring the packet packet from " + from);
 			}
@@ -237,7 +240,7 @@ public class Node2PC extends Node{
 				
 				decide = Decision.ABORT;
 				String message = Decision.ABORT.toString();
-				send(Packet.BROADCAST_ADDRESS, Protocol.DECISION_PKT, Utility.stringToByteArray(message));
+				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
 				stop();
 			}
 		}else{
@@ -313,12 +316,12 @@ public class Node2PC extends Node{
 		try {
 			// send a vote request to all participants
 			String message = "";
-			send(Packet.BROADCAST_ADDRESS, Protocol.VOTEREQ_PKT, Utility.stringToByteArray(message));
+			broadcast(Protocol.VOTEREQ_PKT, Utility.stringToByteArray(message));
 			
 			// wait for all of the participants to respond
 			currentState = State.VOTEWAIT;
-			//FIXME: this doesnt work if we're the only one alive
-			for(int i = 1; i < getNumNodes(); ++i){
+			//FIXME: this doesnt work if we're the only one alive, but do I care?
+			for(int i = 1; i < NUM_NODES; ++i){
 				add2PCTimeout(i);
 			}
 			votes = new HashMap<Integer, Decision>();
@@ -350,31 +353,31 @@ public class Node2PC extends Node{
 			Decision participantVote = Decision.valueOf( Utility.byteArrayToString(msg) );
 			votes.put(from, participantVote);
 			
-			if(participantVote == Decision.ABORT){
+			if (participantVote == Decision.ABORT) {
 				// Someone voted abort
 				logOutput("Deciding to abort...");
-				try{
+				try {
 					log.write("ABORT\n");
-				}catch(IOException e) {
+				} catch (IOException e) {
 					logError("Failed logging 'ABORT'");
 					stop();
 				}
 				decide = Decision.ABORT;
 				message = Decision.ABORT.toString();
-				send(Packet.BROADCAST_ADDRESS, Protocol.DECISION_PKT, Utility.stringToByteArray(message));
+				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
 				stop();
-			}else if(++votesReceived == getNumNodes()-1){
+			} else if (++votesReceived == NUM_NODES - 1) {
 				// Everyone voted commit
 				logOutput("Deciding to commit...");
-				try{
+				try {
 					log.write("COMMIT\n");
-				}catch(IOException e) {
+				} catch (IOException e) {
 					logError("Failed logging 'COMMIT'");
 					stop();
 				}
 				decide = Decision.COMMIT;
 				message = Decision.COMMIT.toString();
-				send(Packet.BROADCAST_ADDRESS, Protocol.DECISION_PKT, Utility.stringToByteArray(message));
+				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
 				stop();
 			}
 			break;
@@ -385,7 +388,7 @@ public class Node2PC extends Node{
 				logOutput("Deciding to abort...");
 				decide = Decision.ABORT;
 				message = Decision.ABORT.toString();
-				send(Packet.BROADCAST_ADDRESS, Protocol.DECISION_PKT, Utility.stringToByteArray(message));
+				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
 				stop();
 			}
 			// If we've already decided, we send help in onReceive
@@ -443,6 +446,7 @@ public class Node2PC extends Node{
 	 * specific implementation is very simple and continuously polls the
 	 * coordinator for a decision.
 	 */
+	//TODO: even if i was manager, i may restart with a different address
 	public void terminationProtocol() {
 		String message = "";
 		send(0, Protocol.DECISIONREQ_PKT, Utility.stringToByteArray(message));

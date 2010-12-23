@@ -35,7 +35,7 @@ public class RIOTester extends RIONode {
 	@Override
 	public void onCommand(String command) {
 		if (command.equals("begin")) {
-			for (int i = 0; i < getNumNodes(); ++i) {
+			for (int i = 0; i < RIONode.NUM_NODES; ++i) {
 				nextNum.put(i, 0);
 			}
 			sendNextNum();
@@ -109,7 +109,7 @@ public class RIOTester extends RIONode {
 		do {
 			// choose a destination that we have not sent 100 messages to yet
 			doAgain = false;
-			destAddr = randNumGen.nextInt(getNumNodes());
+			destAddr = randNumGen.nextInt(RIONode.NUM_NODES);
 			next = nextNum.get(destAddr);
 			if (next == -1) {
 				doAgain = true;
@@ -117,7 +117,7 @@ public class RIOTester extends RIONode {
 			if (next == 101) {
 				// We just sent 100 to this destination
 				nextNum.put(destAddr, -1);
-				if (++numFinished == getNumNodes()) {
+				if (++numFinished == RIONode.NUM_NODES) {
 					// If we are finished with everything then stop and don't
 					// schedule another timeout
 					stop();
@@ -136,8 +136,7 @@ public class RIOTester extends RIONode {
 		try {
 			Callback cb = new Callback(Callback.getMethod("sendNextNum", this,
 					new String[0]), this, new Object[0]);
-			setTimeout(1);
-			addTimeout(cb);
+			addTimeout(cb, 1);
 		} catch (NoSuchMethodException e) {
 			e.printStackTrace();
 		} catch (ClassNotFoundException e) {

@@ -61,7 +61,7 @@ public abstract class CommandsParser {
 	 * @throws FileNotFoundException If the named filed does not exist, is a directory rather than a regular file, or
 	 *                               for some other reason cannot be opened for reading     
 	 */
-	public ArrayList<Event> parseFile(String filename) throws FileNotFoundException {
+	protected ArrayList<Event> parseFile(String filename) throws FileNotFoundException {
 		if(filename == null) {
 			throw new FileNotFoundException("null filename");
 		}
@@ -73,7 +73,7 @@ public abstract class CommandsParser {
 	/**
 	 * Parse the command file.
 	 */
-	public ArrayList<Event> parse(){
+	protected ArrayList<Event> parse(){
 		try {
 			ArrayList<Event> eventQueue = new ArrayList<Event>();
 			String line;
@@ -94,33 +94,32 @@ public abstract class CommandsParser {
 	}
 
 	/**
-	 * Process one line of topology file or keyboard input.
-	 * @param line A command line.
-	 * @param now The current time in microseconds
-	 * @return How long to defer further processing. Returns -1 if do not have to defer
-	 * @DEPRECATED
+	 * Process one line of the command file or keyboard input.
+	 * 
+	 * @param line
+	 *            A command line.
+	 * @return The Event specified by the line
 	 */
 	protected Event parseLine(String line) {
 		line = line.trim();
-		
-		if(skipLine(line)) {
+
+		if (skipLine(line)) {
 			return null;
 		}
 
 		String[] cmd = line.split("\\s+");
 		Event e;
-		
-		if((e = parseFail(cmd)) != null){
+
+		if ((e = parseFail(cmd)) != null) {
 			return e;
 		}
-		
-		if((e = parseStart(cmd)) != null) {
+
+		if ((e = parseStart(cmd)) != null) {
 			return e;
 		}
 
 		return parseCommonCmds(cmd);
 	}
-
 
 	/******************** Protected Functions ********************/
 

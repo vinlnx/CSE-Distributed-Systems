@@ -3,7 +3,6 @@ import java.util.HashMap;
 import java.util.LinkedList;
 
 import edu.washington.cs.cse490h.lib.Callback;
-import edu.washington.cs.cse490h.lib.Packet;
 import edu.washington.cs.cse490h.lib.Utility;
 
 /**
@@ -15,6 +14,8 @@ import edu.washington.cs.cse490h.lib.Utility;
  * reliable, in-order message delivery, even in the presence of node failures.
  */
 public class ReliableInOrderMsgLayer {
+	public static int TIMEOUT = 3;
+	
 	private HashMap<Integer, InChannel> inConnections;
 	private HashMap<Integer, OutChannel> outConnections;
 	private RIONode n;
@@ -75,9 +76,10 @@ public class ReliableInOrderMsgLayer {
 		int seqNum = Integer.parseInt( Utility.byteArrayToString(msg) );
 		outConnections.get(from).gotACK(seqNum);
 	}
-	
+
 	/**
-	 * Send a packet using this reliable, in-order messaging layer.
+	 * Send a packet using this reliable, in-order messaging layer. Note that
+	 * this method does not include a reliable, in-order broadcast mechanism.
 	 * 
 	 * @param destAddr
 	 *            The address of the destination for this packet
@@ -87,11 +89,6 @@ public class ReliableInOrderMsgLayer {
 	 *            The payload to be sent
 	 */
 	public void RIOSend(int destAddr, int protocol, byte[] payload) {
-		if(destAddr == Packet.BROADCAST_ADDRESS) {
-			System.err.println("Error: This protocol does not include reliable broadcast.");
-			return;
-		}
-		
 		OutChannel out = outConnections.get(destAddr);
 		if(out == null) {
 			out = new OutChannel(this, destAddr);
@@ -217,8 +214,7 @@ class OutChannel {
 			unACKedPackets.put(lastSeqNumSent, newPkt);
 			
 			n.send(destAddr, Protocol.DATA, newPkt.pack());
-			n.setTimeout(3);
-			n.addTimeout(new Callback(onTimeoutMethod, parent, new Object[]{ destAddr, lastSeqNumSent }));
+			n.addTimeout(new Callback(onTimeoutMethod, parent, new Object[]{ destAddr, lastSeqNumSent }), ReliableInOrderMsgLayer.TIMEOUT);
 		}catch(Exception e) {
 			e.printStackTrace();
 		}
@@ -263,8 +259,7 @@ class OutChannel {
 			RIOPacket riopkt = unACKedPackets.get(seqNum);
 			
 			n.send(destAddr, Protocol.DATA, riopkt.pack());
-			n.setTimeout(3);
-			n.addTimeout(new Callback(onTimeoutMethod, parent, new Object[]{ destAddr, seqNum }));
+			n.addTimeout(new Callback(onTimeoutMethod, parent, new Object[]{ destAddr, seqNum }), ReliableInOrderMsgLayer.TIMEOUT);
 		}catch(Exception e) {
 			e.printStackTrace();
 		}

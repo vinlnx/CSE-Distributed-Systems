@@ -1,38 +1,41 @@
 package edu.washington.cs.cse490h.lib;
 
 /**
- * <pre>   
- * Parser for the Emulator
- * Emulator is interested in all commands except topology commands
- * </pre>   
+ * Parser for the Emulator. Basically just does away with addresses in commands.
  */
-//FIXME: make this make sense, ignore stuff that isnt for me 
 public class EmulationCommandsParser extends CommandsParser {
-	/**
-	 * Process one line of topology file or keyboard input.
-	 * @param line A command line.
-	 * @param now The current time in microseconds
-	 * @return How long to defer further processing. Returns -1 if do not have to defer
-	 */
+	@Override
 	protected Event parseLine(String line) {
 		line = line.trim();
-		
-		if(skipLine(line)) {
+
+		if (skipLine(line)) {
 			return null;
 		}
 
 		String[] cmd = line.split("\\s+");
 
+		if (cmd[0].equals("fail")) {
+			return new Event(-1, Event.EventType.FAILURE);
+		}
+
+		if (cmd[0].equals("start")) {
+			return new Event(-1, Event.EventType.START);
+		}
+
 		return parseCommonCmds(cmd);
-	}  
+	}
 
 	protected Event parseNodeCmd(String[] cmd) {
-		String msg = "";
-		for(int i = 0; i < cmd.length; i++) {
-			msg += cmd[i] + " ";
+		if (cmd.length < 1) {
+			// Should've been caught earlier
+			return null;
 		}
-		// remove last space added by above loop
-		msg = msg.substring(0, msg.length() - 1);
+		
+		StringBuffer msg = new StringBuffer(cmd[0]);
+		
+		for(int i = 1; i < cmd.length; i++) {
+			msg.append(" " + cmd[i]);
+		}
 		
 		// Node addr does not matter for emulator
 		return new Event(-1, msg.toString());

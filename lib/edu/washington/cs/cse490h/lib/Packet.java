@@ -2,6 +2,8 @@ package edu.washington.cs.cse490h.lib;
 
 import java.io.ByteArrayOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -11,34 +13,38 @@ import java.io.InputStream;
  * </pre>   
  */
 public class Packet {
-
-	public static final int BROADCAST_ADDRESS = 255;
-	public static final int MAX_ADDRESS = 255;
-	public static final int HEADER_SIZE = 4;
-	public static final int MAX_PAYLOAD_SIZE = (java.lang.Short.MAX_VALUE+1)*2 - 1;  // bytes
-	public static final int MAX_PACKET_SIZE = MAX_PAYLOAD_SIZE + HEADER_SIZE;  // bytes
+	public static final int HEADER_SIZE = 8;
+	public static final int MAX_PACKET_SIZE = java.lang.Integer.MAX_VALUE;  // bytes
+	public static final int MAX_PAYLOAD_SIZE = MAX_PACKET_SIZE - HEADER_SIZE;  // bytes
 
 	private int dest;
 	private int src;
 	private int protocol;
 	private int flags;
 	
-	public static final byte FIN = 1;
+	protected static final byte FIN = 1;
 	
 	private byte[] payload;
 
-	/**
-	 * Constructing a new packet.
-	 * @param dest The destination fishnet address.
-	 * @param src The source fishnet address.
-	 * @param ttl The time-to-live value for this packet.
-	 * @param protocol What type of packet this is.
-	 * @param seq The sequence number of the packet.
-	 * @param payload The payload of the packet.
-	 * @throws IllegalArgumentException If the given arguments are invalid
-	 */
-	public Packet(int dest, int src, int protocol, byte[] payload) throws IllegalArgumentException {
+	static class CorruptPacketException extends IOException {
+		private static final long serialVersionUID = -8471415959243642433L;
+	}
 
+	/**
+	 * Constructs a new packet that is meant to carry data
+	 * 
+	 * @param dest
+	 *            The destination address.
+	 * @param src
+	 *            The source address.
+	 * @param protocol
+	 *            What type of packet this is.
+	 * @param payload
+	 *            The payload of the packet.
+	 * @throws IllegalArgumentException
+	 *             If the given arguments are invalid
+	 */
+	protected Packet(int dest, int src, int protocol, byte[] payload) throws IllegalArgumentException {
 		if(!isValid(dest, src, payload.length + Packet.HEADER_SIZE)) {
 			throw new IllegalArgumentException("Arguments passed to constructor of Packet are invalid");
 		}
@@ -50,7 +56,18 @@ public class Packet {
 		this.payload = payload;
 	}
 	
-	public Packet(int node) {
+	/**
+	 * Constructs a new FIN packet that is meant to signal a node quit in
+	 * Emulator mode and facilitate connection closing
+	 * 
+	 * @param node
+	 *            The address of the node that is leaving the network
+	 */
+	Packet(int node) {
+		if(!isValid(node, node, Packet.HEADER_SIZE)) {
+			throw new IllegalArgumentException("Arguments passed to constructor of Packet are invalid");
+		}
+		
 		dest = node;
 		src = node;
 		protocol = 0;
@@ -58,8 +75,23 @@ public class Packet {
 		payload = new byte[0];
 	}
 
-	public Packet(int dest, int src, int protocol, int flags, byte[] payload) throws IllegalArgumentException {
-
+	/**
+	 * Constructs a new Packet and allows setting of the flags. This should only
+	 * be used to unpack arbitrary packets while reading a byte stream
+	 * 
+	 * @param dest
+	 *            The destination address.
+	 * @param src
+	 *            The source address.
+	 * @param protocol
+	 *            What type of packet this is.
+	 * @param flags
+	 *            The flags byte of the packet
+	 * @param payload
+	 *            The payload of the packet.
+	 * @throws IllegalArgumentException
+	 */
+	private Packet(int dest, int src, int protocol, int flags, byte[] payload) throws IllegalArgumentException {
 		if(!isValid(dest, src, payload.length + Packet.HEADER_SIZE)) {
 			throw new IllegalArgumentException("Arguments passed to constructor of Packet are invalid");
 		}
@@ -87,35 +119,35 @@ public class Packet {
 	/**
 	 * @return The address of the destination node
 	 */
-	public int getDest() {
+	protected int getDest() {
 		return dest;
 	}
 
 	/**
 	 * @return The address of the src node
 	 */
-	public int getSrc() {
+	protected int getSrc() {
 		return src;
 	}
 
 	/**
 	 * @return The protocol used for this packet
 	 */
-	public int getProtocol() {
+	protected int getProtocol() {
 		return protocol;
 	}
 
 	/**
 	 * @return The flags for this packet
 	 */
-	public int getFlags() {
+	protected int getFlags() {
 		return flags;
 	}
 	
 	/**
 	 * @return The payload of this packet
 	 */
-	public byte[] getPayload() {
+	protected byte[] getPayload() {
 		return payload;
 	}
 
@@ -125,103 +157,79 @@ public class Packet {
 	 *        destination address: 1 byte
 	 *        source address: 1 byte
 	 *        protocol: 1 byte
-	 *        packet length: 1 byte
+	 *        flags: 1 byte
+	 *        payload length: 4 byte
 	 *        payload: <= MAX_PAYLOAD_SIZE bytes
 	 * @return A byte[] for transporting over the wire. Null if failed to pack for some reason
 	 */
-	public byte[] pack() {	
+	protected byte[] pack() {	
+		try {
+			ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
+			DataOutputStream out = new DataOutputStream(byteStream);
+			out.writeByte(dest);
+			out.writeByte(src);
+			out.writeByte(protocol);
+			out.writeByte(flags);
+			out.writeInt(payload.length);
 
-		ByteArrayOutputStream byteStream = new ByteArrayOutputStream();
-		byteStream.write(dest);
-		byteStream.write(src);
-		byteStream.write(protocol);
-		byteStream.write(flags);
-		byteStream.write(payload.length);
-
-		byteStream.write(payload, 0, payload.length);
-
-		return byteStream.toByteArray();
+			out.write(payload, 0, payload.length);
+			
+			out.flush();
+			return byteStream.toByteArray();
+		} catch(IOException e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 
 	/**
-	 * Unpacks a byte array to create a Packet object
-	 * Assumes the array has been formatted using pack method in Packet
-	 * @param packedPacket String representation of the packet
-	 * @return Packet object created or null if the byte[] representation was corrupted
+	 * Unpacks a byte array to create a Packet object. Assumes the array has
+	 * been formatted using pack method in Packet
+	 * 
+	 * @param packedPacket
+	 *            String representation of the packet
+	 * @return Packet Object created or null if the byte[] representation was
+	 *         corrupted
+	 * @throws CorruptPacketException 
 	 */
-	public static Packet unpack(byte[] packedPacket){
-		ByteArrayInputStream byteStream = new ByteArrayInputStream(packedPacket);
-
-		int dest = byteStream.read();
-		int src = byteStream.read();
-		int protocol = byteStream.read();
-		int flags = byteStream.read();
-		int packetLength = byteStream.read();
-
-		byte[] payload = new byte[byteStream.available()];
-		byteStream.read(payload, 0, payload.length);
-
-		if(payload.length != packetLength) {
-			return null;
-		}	
-
-		try {
-			return new Packet(dest, src, protocol, flags, payload);
-		}catch(IllegalArgumentException e) {
-			// will return null
-		}
-		return null;
+	protected static Packet unpack(byte[] packedPacket) throws CorruptPacketException{
+		return unpack( new DataInputStream(new ByteArrayInputStream(packedPacket)) );
 	}
 	
 	/**
-	 * Unpacks a byte array to create a Packet object
-	 * Assumes the array has been formatted using pack method in Packet
-	 * @param packedPacket String representation of the packet
-	 * @return Packet object created or null if the byte[] representation was corrupted
+	 * Reads an input stream to create a Packet object. Assumes the array has
+	 * been formatted using pack method in Packet
+	 * 
+	 * @param stream
+	 *            Input stream (probably from a socket)
+	 * @return Packet object created or null if the byte[] representation was
+	 *         corrupted
+	 * @throws CorruptPacketException 
 	 */
-	public static Packet unpack(InputStream stream) throws IOException{
-		int dest = stream.read();
-		while(dest == -1){
-			Thread.yield();
-			dest = stream.read();
-		}
-		int src = stream.read();
-		while(src == -1){
-			Thread.yield();
-			src = stream.read();
-		}
-		int protocol = stream.read();
-		while(protocol == -1){
-			Thread.yield();
-			protocol = stream.read();
-		}
-		int flags = stream.read();
-		while(flags == -1){
-			Thread.yield();
-			flags = stream.read();
-		}
-		int payloadLength = stream.read();
-		while(payloadLength == -1){
-			Thread.yield();
-			payloadLength = stream.read();
-		}
-
-		byte[] payload = new byte[payloadLength];
-		int off = 0;
-		while(off < payloadLength) {
-			Thread.yield();
-			int read = stream.read(payload, off, payload.length - off);
-			if(read != -1) {
-				off += read;
-			}
-		}
-
+	protected static Packet unpack(InputStream stream) throws CorruptPacketException {
+		return unpack( new DataInputStream(stream) );
+	}
+	
+	private static Packet unpack(DataInputStream in) throws CorruptPacketException {
 		try {
+			// If the end of stream is reached normally, this will be -1
+			int dest = in.read();
+			if(dest == -1) {
+				return null;
+			}
+			int src = in.read();
+			int protocol = in.read();
+			int flags = in.read();
+			int payloadLength = in.readInt();
+			
+			byte[] payload = new byte[payloadLength];
+			in.readFully(payload);
+
 			return new Packet(dest, src, protocol, flags, payload);
-		}catch(IllegalArgumentException e) {
-			// will return null
+		}catch(Exception e) {
+			e.printStackTrace();
 		}
-		return null;
+		throw new CorruptPacketException();
 	}
 	
 	/**
@@ -229,26 +237,26 @@ public class Packet {
 	 * @param addr Address to check
 	 * @return True is address is valid, else false
 	 */
-	public static boolean validAddress(int addr) {
-		return (addr <= MAX_ADDRESS && addr >= 0);
+	protected static boolean validAddress(int addr) {
+		return (addr <= Manager.MAX_ADDRESS && addr >= 0);
 	}
 
 	/**
 	 * Tests if this Packet is valid or not
 	 * @return True if packet is valid, else false
 	 */
-	public boolean isValid() {
+	protected boolean isValid() {
 		return isValid(dest, src, payload.length + HEADER_SIZE);
 	}
 
-	private boolean isValid(int dest, int src, int size) {
-		return (dest <= MAX_ADDRESS && dest >= 0   &&
+	private static boolean isValid(int dest, int src, int size) {
+		return (dest <= Manager.MAX_ADDRESS && dest >= 0   &&
 				Packet.validAddress(src)           &&
 				size <= MAX_PACKET_SIZE);
 
 	}
 
-	public String toSynopticString() {
+	protected String toSynopticString() {
 		return new String("src:" + src + " dest:" + dest + " proto:" + protocol + 
 				" contents:" + Utility.byteArrayToString(payload));
 	}

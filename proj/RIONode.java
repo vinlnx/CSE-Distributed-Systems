@@ -12,6 +12,8 @@ import edu.washington.cs.cse490h.lib.Node;
 public abstract class RIONode extends Node {
 	private ReliableInOrderMsgLayer RIOLayer;
 	
+	public static int NUM_NODES = 3;
+	
 	public RIONode() {
 		RIOLayer = new ReliableInOrderMsgLayer(this);
 	}

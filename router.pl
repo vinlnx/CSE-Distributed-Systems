@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Simple script to start Fishnet
+# Simple script to start a Router
 
 main();
 

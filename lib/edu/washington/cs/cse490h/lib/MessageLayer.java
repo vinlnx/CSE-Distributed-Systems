@@ -27,9 +27,9 @@ import edu.washington.cs.cse490h.lib.Manager.FailureLvl;
  *  -s --simulate=<boolean>           - Simulate [default false]
  *  -e --emulate=<boolean>            - Emulate [default false]
  *  -n --nodeClass=<string>           - Node class to use [default ]
- *  --trawlerHostname=<string>        - Trawler hostname [default ]
- *  --trawlerPort=<int>               - Trawler port [default -1]
- *  -p --localUDPPort=<int>           - Local UDP port [default -1]
+ *  --routerHostname=<string>         - Router hostname [default localhost]
+ *  --routerPort=<int>                - Router port [default -1]
+ *  -t --timestep=<long>              - Time step, in ms [default 1000]
  *  -r --seed=<long>                  - Random seed
  *  -c --commandFile=<string>         - Command file [default ]
  *  -f --failureLvlInt=<int>          - Failure level, a number between 0 and 4 [default 4]
@@ -83,18 +83,23 @@ public class MessageLayer {
 	public static String nodeClass = "";
 
 	/**
-	 * Trawler hostname
+	 * Router hostname
 	 */
 	@Option(value="Router hostname", aliases={"-router-host"})
-	// TODO: specify a sane default        
-	public static String routerHostname = "";
+	public static String routerHostname = "localhost";
 
 	/**
-	 * Trawler port
+	 * Router port
 	 */
 	@Option(value="Router port", aliases={"-router-port"})
 	// TODO: specify a sane default    
 	public static int routerPort = -1;
+
+	/**
+	 * Time step
+	 */
+	@Option(value = "-t Time step, in ms", aliases = { "-time-step" })
+	public static long timestep = 1000;
 
 	/**
 	 * Seed to use
@@ -232,9 +237,9 @@ public class MessageLayer {
 
 				try {
 					if (!commandFile.equals("")) {
-						manager = new Emulator(nodeImpl, routerHostname, routerPort, failureLvl, commandFile, seed);
+						manager = new Emulator(nodeImpl, routerHostname, routerPort, failureLvl, commandFile, seed, timestep);
 					} else {
-						manager = new Emulator(nodeImpl, routerHostname, routerPort, failureLvl, seed);
+						manager = new Emulator(nodeImpl, routerHostname, routerPort, failureLvl, seed, timestep);
 					}
 				} catch(UnknownHostException e) {
 					printError("Router host name is unkown! Exception: " + e);

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Simple script to start Fishnet
+# Simple script to start a Node Manager that uses a compiled lib.jar
 
 main();
 
@@ -12,6 +12,5 @@ sub main {
 
     system("rm -rf storage");
     exec("java -cp $classpath edu.washington.cs.cse490h.lib.MessageLayer $args");
-    # exec("nice java -cp $classpath Fishnet $fishnetArgs");
 }
 
