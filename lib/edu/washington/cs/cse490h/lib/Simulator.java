@@ -22,6 +22,7 @@ public class Simulator extends Manager {
     
 	private HashMap<Integer, Node> nodes;
 	private HashSet<Integer> crashedNodes;
+	private HashSet<Integer> stoppedNodes;
 	
 	// the global logical time ordering which increments by 1 on every
 	// event in the simulated system.
@@ -58,6 +59,7 @@ public class Simulator extends Manager {
 
 		nodes = new HashMap<Integer, Node>();
 		crashedNodes = new HashSet<Integer>();
+		stoppedNodes = new HashSet<Integer>();
 
 		setTime(0);
 	}
@@ -213,6 +215,10 @@ public class Simulator extends Manager {
 			logEvent(nodes.get(i), "STOPPED");
 		}
 		
+		for(Integer i: stoppedNodes) {
+			System.out.println(i + ": stopped");
+		}
+		
 		for(Integer i: crashedNodes){
 			System.out.println(i + ": failed");
 		}
@@ -249,11 +255,11 @@ public class Simulator extends Manager {
 			failNode(node);
 			return;
 		}
-		
-		if(crashedNodes.contains(node)){
+
+		if (crashedNodes.contains(node)) {
 			crashedNodes.remove(node);
-		}else{
-			//Node.setNumNodes(Node.getNumNodes()+1);
+		} else if (stoppedNodes.contains(node)) {
+			stoppedNodes.remove(node);
 		}
 		nodes.put(node, newNode);
 		
@@ -262,7 +268,11 @@ public class Simulator extends Manager {
 		newNode.init(this, node);
 		try{
 			newNode.start();
-		}catch(NodeCrashException e) { }
+		}catch(NodeCrashException e) {
+			if (!crashedNodes.contains(newNode)) {
+				quitNode(newNode);
+			}
+		}
 	}
 
 	/**
@@ -303,6 +313,19 @@ public class Simulator extends Manager {
 		return crash;
 	}
 	
+	private void quitNode(Node crashingNode) {
+		logEvent(crashingNode, "STOPPED");
+
+		nodes.remove(crashingNode);
+
+		Iterator<Timeout> iter = waitingTOs.iterator();
+		while (iter.hasNext()) {
+			Timeout to = iter.next();
+			if (to.node.addr == crashingNode.addr) {
+				canceledTimeouts.add(to);
+			}
+		}
+	}
 	
 	@Override
 	protected void checkWriteCrash(Node n, String description) {
@@ -606,7 +629,9 @@ public class Simulator extends Manager {
 				if(t == null) {
 					e.printStackTrace();
 				} else if(t instanceof NodeCrashException) {
-					// let it slide
+					if (!crashedNodes.contains(ev.to.node)) {
+						quitNode(ev.to.node);
+					}
 				} else {
 					t.printStackTrace();
 				}
@@ -658,6 +683,11 @@ public class Simulator extends Manager {
 				logEvent(fromNode, "SEND " + newPacket.toSynopticString());
 				inTransitMsgs.add(newPacket);
 			}
+			for(Integer i: stoppedNodes) {
+				Packet newPacket = new Packet(i, from, protocol, payload);
+				logEvent(fromNode, "SEND " + newPacket.toSynopticString());
+				inTransitMsgs.add(newPacket);
+			}
 		}else{
 			Packet newPacket = new Packet(to, from, protocol, payload);
 			logEvent(fromNode, "SEND " + newPacket.toSynopticString());
@@ -687,7 +717,11 @@ public class Simulator extends Manager {
 				
 		try{
 			destNode.onReceive(srcAddr, pkt.getProtocol(), pkt.getPayload());
-		}catch(NodeCrashException e) { }
+		}catch(NodeCrashException e) {
+			if (!crashedNodes.contains(destNode)) {
+				quitNode(destNode);
+			}
+		}
 	}
 
 	/**
@@ -703,12 +737,17 @@ public class Simulator extends Manager {
 		if(!isNodeValid(nodeAddr)) {
 			return;
 		}
-		
-		logEvent(nodes.get(nodeAddr), "COMMAND" + msg);
-		
+
+		Node n = nodes.get(nodeAddr);
+
+		logEvent(n, "COMMAND" + msg);
+
 		try {
-			nodes.get(nodeAddr).onCommand(msg);
+			n.onCommand(msg);
 		} catch (NodeCrashException e) {
+			if (!crashedNodes.contains(n)) {
+				quitNode(n);
+			}
 		}
 	}
 

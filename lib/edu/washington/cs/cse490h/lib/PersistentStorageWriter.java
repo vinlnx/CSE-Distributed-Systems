@@ -20,7 +20,6 @@ import java.io.Writer;
  * a crash than write("abc\n");
  * 
  */
-//TODO: Make this event driven as well?
 public class PersistentStorageWriter extends BufferedWriter {
 	private File f;
 	private Node n;

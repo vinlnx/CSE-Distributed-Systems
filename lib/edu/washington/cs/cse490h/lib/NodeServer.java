@@ -79,7 +79,11 @@ public class NodeServer implements Runnable {
 			socket.close();
 		} catch (IOException e) {
 		}
-		parent.deleteNode();
+		synchronized (parent) {
+			if (parent != null) {
+				parent.IOFinish();
+			}
+		}
 	}
 
 	/**
@@ -134,19 +138,22 @@ public class NodeServer implements Runnable {
 				send(pkt.pack());
 			}
 			send(fin.pack());
+		} catch (IOException e) {
+			System.err.println("Error while sending back packets.");
+			e.printStackTrace();
+		}
 
+		packetsReceived.clear();
+		synchronized (parent) {
+			parent = null;
+		}
+		finished = true;
+
+		try {
 			socket.close();
 		} catch (IOException e) {
 			System.err.println("Error while closing socket!");
 			e.printStackTrace();
 		}
-		
-		finished = true;
-		packetsReceived.clear();
-		parent.inTransitMsgs.clear();
-	}
-	
-	protected void finish() {
-		finished = true;
 	}
 }

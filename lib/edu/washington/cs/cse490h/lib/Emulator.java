@@ -27,6 +27,7 @@ public class Emulator extends Manager {
 	private int trawlerPort;
 
 	private boolean failed;
+	private boolean IOFinished;
 
 	public Emulator(Class<? extends Node> nodeImpl, String trawlerName, int trawlerPort, Long seed, long timeStep) throws IOException, IllegalArgumentException{
 		super(nodeImpl);
@@ -127,6 +128,12 @@ public class Emulator extends Manager {
 
 		if (cmdInputType == InputType.FILE) {
 			while (node != null || failed) {
+				if (IOFinished && node != null) {
+					System.err.println("Network I/O thread failed, killing the node...");
+
+					failNode();
+				}
+
 				System.out.println("\nTime: " + now());
 
 				if (node == null) {
@@ -168,6 +175,12 @@ public class Emulator extends Manager {
 			}
 		}else if(cmdInputType == InputType.USER) {
 			while (node != null || failed) {
+				if (IOFinished && node != null) {
+					System.err.println("Network I/O thread failed, killing the node...");
+
+					failNode();
+				}
+
 				System.out.println("\nTime: " + now());
 
 				if (node == null) {
@@ -282,7 +295,7 @@ public class Emulator extends Manager {
 		}
 		if (server != null) {
 			System.err.println("Error: Node was null but server wasn't?");
-			server = null;
+			killServer();
 		}
 
 		// start up the server
@@ -294,6 +307,7 @@ public class Emulator extends Manager {
 			stop();
 		}
 		address = server.getAddress();
+		IOFinished = false;
 
 		if(address == Manager.BROADCAST_ADDRESS) {
 			// Router returns broadcast address to signal it has no more free addresses
@@ -306,7 +320,7 @@ public class Emulator extends Manager {
 			node = nodeImpl.newInstance();
 		} catch (Exception e) {
 			System.err.println("Error while constructing node: " + e);
-			server.finish();
+			killServer();
 			stop();
 		}
 
@@ -317,18 +331,25 @@ public class Emulator extends Manager {
 		try {
 			node.start();
 		} catch (NodeCrashException e) {
-			//FIXME: don't do anything after
+			if (!failed) {
+				quitNode();
+			}
 		}
 	}
 
-	protected void deleteNode() {
-		//TODO: get rid of the node in this case
+	private void quitNode() {
+		killServer();
+		stop();
 	}
 	
 	private NodeCrashException failNode() {
+		killServer();
+		return killNode();
+	}
+	
+	private NodeCrashException killNode() {
 		NodeCrashException crash = null;
-		server.close();
-
+		
 		try {
 			node.stop();
 		} catch (NodeCrashException e) {
@@ -339,9 +360,18 @@ public class Emulator extends Manager {
 
 		waitingTOs.clear();
 		node = null;
-		server = null;
 		failed = true;
+		
 		return crash;
+	}
+	
+	private void killServer() {
+		if (!IOFinished) {
+			server.close();
+			IOFinished = true;
+		}
+		inTransitMsgs.clear();
+		server = null;
 	}
 
 	@Override
@@ -368,6 +398,10 @@ public class Emulator extends Manager {
 				e.printStackTrace();
 			}
 		}
+	}
+	
+	protected void IOFinish() {
+		IOFinished = true;
 	}
 	
 	private void checkInTransit(ArrayList<Event> currentRoundEvents) {
@@ -617,8 +651,10 @@ public class Emulator extends Manager {
 				Throwable t = e.getCause();
 				if(t == null) {
 					e.printStackTrace();
-				} else if(t instanceof NodeCrashException) {
-					//FIXME: don't do anything after
+				} else if (t instanceof NodeCrashException) {
+					if (!failed) {
+						quitNode();
+					}
 				} else {
 					t.printStackTrace();
 				}
@@ -673,7 +709,9 @@ public class Emulator extends Manager {
 			try{
 				node.onReceive(pkt.getSrc(), pkt.getProtocol(), pkt.getPayload());
 			} catch (NodeCrashException e) {
-				//FIXME: don't do anything after
+				if (!failed) {
+					quitNode();
+				}
 			}
 		}
 		// drop if not for me. This can happen if we took a port that was recently occupied by another node
@@ -695,7 +733,9 @@ public class Emulator extends Manager {
 		try{
 			node.onCommand(msg);
 		} catch (NodeCrashException e) {
-			//FIXME: don't do anything after
+			if (!failed) {
+				quitNode();
+			}
 		}
 	}
 	

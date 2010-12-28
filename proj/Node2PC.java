@@ -301,7 +301,7 @@ public class Node2PC extends Node{
 	/**
 	 * If the command is a initVote command, this method executes it, which
 	 * simply starts a vote from the coordinator. This command should only be
-	 * sent to node 0.
+	 * sent to node 0, and there should be at least 2 nodes participating.
 	 * 
 	 * @param command
 	 * @return true if the command was an initVote command, false otherwise
@@ -320,7 +320,7 @@ public class Node2PC extends Node{
 			
 			// wait for all of the participants to respond
 			currentState = State.VOTEWAIT;
-			//FIXME: this doesnt work if we're the only one alive, but do I care?
+			//This doesn't work if we're the only one alive
 			for(int i = 1; i < NUM_NODES; ++i){
 				add2PCTimeout(i);
 			}

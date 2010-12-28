@@ -206,11 +206,10 @@ public class MessageLayer {
 			failureLvl = possibleFailureLvls[failureLvlInt];	
 		}
 
-
 		try {
 			Manager manager = null;
 
-			URLClassLoader nodeLoader = new URLClassLoader(new URL[] {ClassLoader.getSystemResource("../proj/")}); //FIXME: is this really looking in the right place? It seems to work
+			URLClassLoader nodeLoader = new URLClassLoader(new URL[] {ClassLoader.getSystemResource("proj/")}); //FIXME: is this really looking in the right place? It seems to work
 			Class<? extends Node> nodeImpl = nodeLoader.loadClass(nodeClass).asSubclass(Node.class);
 
 			if (simulate) {
