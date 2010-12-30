@@ -2,7 +2,6 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.util.HashMap;
-import java.util.Random;
 
 import edu.washington.cs.cse490h.lib.Callback;
 import edu.washington.cs.cse490h.lib.Node;
@@ -13,7 +12,7 @@ import edu.washington.cs.cse490h.lib.Utility;
 /**
  * <pre>   
  * Node -- Class defining the data structures and code for the
- * protocol stack for a node participating in the fishnet
+ * protocol stack for a node participating in the network
 
  * This code is under student control; we provide a baseline
  * "hello world" example just to show how it interfaces with the FishNet classes.
@@ -42,6 +41,7 @@ public class Node2PC extends Node{
 	public static int TIMEOUT = 4;
 	
 	// 2PC state
+	private boolean coordinator;
 	private Decision vote;
 	private Decision decide;
 	private int votesReceived;
@@ -58,14 +58,14 @@ public class Node2PC extends Node{
 	 * Create a new node and initialize everything
 	 */
 	public Node2PC() {
-		Random rand = new Random();
-		if(rand.nextDouble() <= .95){
+		if(Utility.getRNG().nextDouble() <= .95){
 			vote = Decision.COMMIT;
 		}else{
 			vote = Decision.ABORT;
 		}
 		//vote = rand.nextBoolean() ? Decision.COMMIT : Decision.ABORT;
 		decide = Decision.UNDECIDED;
+		coordinator = false;
 		votesReceived = 0;
 		currentState = State.REQWAIT;
 		votes = null;
@@ -80,17 +80,15 @@ public class Node2PC extends Node{
 				// First start of node
 				log = getWriter("log", false);
 				logOutput("Started fresh and going to vote: " + vote);
-				add2PCTimeout(0);
+				add2PCTimeout(-1);
 			}else {
 				// We are a recovering node
 				logOutput("Recovered. Checking logs...");
 				recoverWithLog();
-				
-				log = getWriter("log", true);
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
-			stop();
+			fail();
 		}
 
 	}
@@ -104,57 +102,43 @@ public class Node2PC extends Node{
 	private void recoverWithLog() throws IOException{
 		PersistentStorageReader logReader = getReader("log");
 
-		if(addr == 0) {
-			// We are the coordinator
-			while(logReader.ready()) {
-				String line = logReader.readLine();
-				if(line.equals("COMMIT")){
-					logOutput("Discovered that we previously committed...");
-					decide = Decision.COMMIT;
-					String message = Decision.COMMIT.toString();
-					broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
-					stop();
-				}else if(line.equals("ABORT")){
-					logOutput("Discovered that we previously aborted...");
-					decide = Decision.ABORT;
-					String message = Decision.ABORT.toString();
-					broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
-					stop();
-				}
+		boolean votedYes = false;
+		while (logReader.ready()) {
+			String line = logReader.readLine();
+			if (line.equals("START-2PC")) {
+				coordinator = true;
+			} else if (line.equals("COMMIT")) {
+				logOutput("Discovered that we previously committed...");
+				finish(Decision.COMMIT, false);
+				return;
+			} else if (line.equals("ABORT")) {
+				logOutput("Discovered that we previously aborted...");
+				finish(Decision.ABORT, false);
+				return;
+			} else if(line.equals("YES")) {
+				votedYes = true;
 			}
-
+		}
+		
+		logReader.close();
+		log = getWriter("log", true);
+		
+		if(coordinator) {
+			// We are the coordinator
 			if (decide == Decision.UNDECIDED) {
 				// We must have crashed before making a decision, which means it
 				// is legal to abort
 				logOutput("Did not decide yet.  Aborting...");
-				decide = Decision.ABORT;
+				finish(Decision.ABORT, true);
 				String message = Decision.ABORT.toString();
 				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
-				stop();
 			}
 		} else {
 			// We are simply a participant
-			boolean votedYes = false;
-			while(logReader.ready()) {
-				String line = logReader.readLine();
-				if(line.equals("COMMIT")) {
-					logOutput("Discovered that we previously committed...");
-					decide = Decision.COMMIT;
-					stop();
-				} else if(line.equals("ABORT")) {
-					logOutput("Discovered that we previously aborted...");
-					decide = Decision.ABORT;
-					stop();
-				} else if(line.equals("YES")) {
-					votedYes = true;
-				}
-			}
-			
-			if(!votedYes) {
+			if (!votedYes) {
 				// We haven't voted yes yet, which means it is legal to abort
 				logOutput("Did not vote yes.  Aborting...");
-				decide = Decision.ABORT;
-				stop();
+				finish(Decision.ABORT, true);
 			} else {
 				// We voted yes, but crashed before deciding.
 				// That means we have no clue if the rest of the nodes aborted
@@ -166,12 +150,26 @@ public class Node2PC extends Node{
 	}
 	
 	@Override
-	public void stop() {
-		logOutput("stopped with decision: " + decide);
-		currentState = State.FINISHED;
+	public void fail() {
+		logOutput("failed with decision: " + decide);
 		
 		// Please call this at the end of stop
-		super.stop();
+		super.fail();
+	}
+
+	private void finish(Decision d, boolean record) {
+		if (record) {
+			try {
+				log.write(d + "\n");
+			} catch (IOException e) {
+				logError("Failed logging '" + d + "'");
+				fail();
+			}
+		}
+
+		decide = d;
+		logOutput("finished with decision: " + decide);
+		currentState = State.FINISHED;
 	}
 
 	/**
@@ -184,8 +182,9 @@ public class Node2PC extends Node{
 		try{
 			Method onTimeoutMethod = Callback.getMethod("onTimeout", this, new String[]{ "java.lang.String", "java.lang.Integer" });
 			addTimeout(new Callback(onTimeoutMethod, this, new Object[]{ currentState.toString(), node }), TIMEOUT);
-		}catch(Exception e){
-			e.printStackTrace(System.err);
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail();
 		}
 	}
 	
@@ -197,7 +196,7 @@ public class Node2PC extends Node{
 			// If we are finished, our state won't change, but if we are the
 			// coordinator, we may need to help out other nodes that are running
 			// the termination protocol
-			if (addr == 0 && protocol == Protocol.DECISIONREQ_PKT) {
+			if (coordinator && protocol == Protocol.DECISIONREQ_PKT) {
 				String message = decide.toString();
 				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
 			}else{
@@ -226,38 +225,23 @@ public class Node2PC extends Node{
 		
 		logOutput("Timed out in " + waitPhase + " waiting for a packet from: " + waitNode);
 		
-		if(addr == 0){
-			// We are the coordinator
-			if(!votes.containsKey(waitNode)){
+		if(coordinator){
+			// We are the coordinator, and the only timeouts after we send the
+			// vote request are for votes
+			if (!votes.containsKey(waitNode)) {
 				// We don't know the vote of the failed node. The failed node
 				// may have wanted to abort, so we must abort.
-				try{
-					log.write("ABORT\n");
-				}catch(IOException e) {
-					logError("Failed logging 'ABORT'");
-					stop();
-				}
-				
-				decide = Decision.ABORT;
+				finish(Decision.ABORT, true);
 				String message = Decision.ABORT.toString();
 				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
-				stop();
 			}
 		}else{
-			if(waitNode == 0){
+			if(waitNode == -1){
 				// The coordinator failed
 				if(currentState == State.REQWAIT){
 					// We are still waiting for the vote request, so we never
 					// voted and can abort.
-					try{
-						log.write("ABORT\n");
-					}catch(IOException e) {
-						logError("Failed logging 'ABORT'");
-						stop();
-					}
-					
-					decide = Decision.ABORT;
-					stop();
+					finish(Decision.ABORT, true);
 				}else if(currentState == State.DECISIONWAIT){
 					// If we are in this state, then we voted yes, but never got
 					// back a decision. We have to ask for help using a
@@ -311,26 +295,29 @@ public class Node2PC extends Node{
 			return false;
 		}
 		
-		logOutput("initializing vote...");
-		
 		try {
-			// send a vote request to all participants
-			String message = "";
-			broadcast(Protocol.VOTEREQ_PKT, Utility.stringToByteArray(message));
-			
-			// wait for all of the participants to respond
-			currentState = State.VOTEWAIT;
-			//This doesn't work if we're the only one alive
-			for(int i = 1; i < NUM_NODES; ++i){
-				add2PCTimeout(i);
-			}
-			votes = new HashMap<Integer, Decision>();
-			return true;
-		}catch(Exception e) {
-			logError("Exception: " + e);
-			e.printStackTrace();
+			log.write("START-2PC\n");
+		} catch (IOException e) {
+			logError("Failed logging 'START-2PC'");
+			fail();
 		}
 
+		logOutput("initializing vote...");
+		coordinator = true;
+
+		// send a vote request to all participants
+		String message = "";
+		broadcast(Protocol.VOTEREQ_PKT, Utility.stringToByteArray(message));
+
+		// wait for all of the participants to respond
+		currentState = State.VOTEWAIT;
+		// This doesn't work if we're the only one alive
+		for (int i = 0; i < NUM_NODES; ++i) {
+			if (i != addr) {
+				add2PCTimeout(i);
+			}
+		}
+		votes = new HashMap<Integer, Decision>();
 		return true;
 	}
 
@@ -346,94 +333,68 @@ public class Node2PC extends Node{
 	 */
 	private void receivePacket(int from, int protocol, byte[] msg) {
 		String message;
-		
+
 		switch(protocol) {
 		// Packets we should receive as coordinator
 		case Protocol.VOTE_PKT:
+			if(!coordinator) {
+				break;
+			}
+
 			Decision participantVote = Decision.valueOf( Utility.byteArrayToString(msg) );
 			votes.put(from, participantVote);
-			
+
 			if (participantVote == Decision.ABORT) {
 				// Someone voted abort
 				logOutput("Deciding to abort...");
-				try {
-					log.write("ABORT\n");
-				} catch (IOException e) {
-					logError("Failed logging 'ABORT'");
-					stop();
-				}
-				decide = Decision.ABORT;
+				finish(Decision.ABORT, true);
 				message = Decision.ABORT.toString();
 				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
-				stop();
 			} else if (++votesReceived == NUM_NODES - 1) {
 				// Everyone voted commit
 				logOutput("Deciding to commit...");
-				try {
-					log.write("COMMIT\n");
-				} catch (IOException e) {
-					logError("Failed logging 'COMMIT'");
-					stop();
-				}
-				decide = Decision.COMMIT;
+				finish(Decision.COMMIT, true);
 				message = Decision.COMMIT.toString();
 				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
-				stop();
 			}
 			break;
 			
 		case Protocol.DECISIONREQ_PKT:
-			if(decide == Decision.UNDECIDED) {
+			if(coordinator && decide == Decision.UNDECIDED) {
 				// A participant must have timed out on our vote request.
 				logOutput("Deciding to abort...");
-				decide = Decision.ABORT;
+				finish(Decision.ABORT, true);
 				message = Decision.ABORT.toString();
 				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
-				stop();
 			}
 			// If we've already decided, we send help in onReceive
 			break;
 			
 		// Packets we should receive as a participant
 		case Protocol.VOTEREQ_PKT:
-			message = vote.toString();
-			send(from, Protocol.VOTE_PKT, Utility.stringToByteArray(message));
-			
 			if(vote == Decision.ABORT){
 				logOutput("Deciding to abort...");
-				try{
-					log.write("ABORT\n");
-				}catch(IOException e) {
-					logError("Failed logging 'ABORT'");
-					stop();
-				}
-				decide = Decision.ABORT;
-				stop();
+				finish(Decision.ABORT, true);
+				message = vote.toString();
+				send(from, Protocol.VOTE_PKT, Utility.stringToByteArray(message));
 			}else{
 				try{
 					log.write("YES\n");
 				}catch(IOException e) {
 					logError("Failed logging 'YES'");
-					stop();
+					fail();
 				}
+				message = vote.toString();
+				send(from, Protocol.VOTE_PKT, Utility.stringToByteArray(message));
 				currentState = State.DECISIONWAIT;
-				add2PCTimeout(0);
+				add2PCTimeout(-1);
 			}
 			break;
 			
 		case Protocol.DECISION_PKT:
 			Decision coordinatorDecision = Decision.valueOf( Utility.byteArrayToString(msg) );
 			logOutput("Deciding to " + coordinatorDecision.toString() + "...");
-			try{
-				log.write(coordinatorDecision.toString() + '\n');
-			}catch(IOException e) {
-				logError("Failed logging '" + coordinatorDecision.toString() + "'");
-				stop();
-			}
-			
-			decide = coordinatorDecision;
-			
-			stop();
+			finish(coordinatorDecision, true);
 			break;
 
 		default:
@@ -446,17 +407,16 @@ public class Node2PC extends Node{
 	 * specific implementation is very simple and continuously polls the
 	 * coordinator for a decision.
 	 */
-	//TODO: even if i was manager, i may restart with a different address
 	public void terminationProtocol() {
 		String message = "";
-		send(0, Protocol.DECISIONREQ_PKT, Utility.stringToByteArray(message));
-		add2PCTimeout(0);
+		broadcast(Protocol.DECISIONREQ_PKT, Utility.stringToByteArray(message));
+		add2PCTimeout(-1);
 	}
 	
 	@Override
 	public String toString(){
 		String s;
-		if(addr == 0){
+		if(coordinator){
 			s = "(Coordinator) addr: " + addr + ", state: " + currentState + ", decision: " + decide;
 		}else{
 			s = "addr: " + addr + ", vote: " + vote + ", state: " + currentState + ", decision: " + decide;

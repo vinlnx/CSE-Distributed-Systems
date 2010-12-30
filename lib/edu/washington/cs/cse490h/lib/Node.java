@@ -28,7 +28,7 @@ public abstract class Node {
 	public static double getDelayRate(){ return 25/100.0; }
 	
 	/**
-	 * Special error that is thrown when stop() is called. It is an unchecked
+	 * Special error that is thrown when fail() is called. It is an unchecked
 	 * exception, which allows us to interrupt execution of the node opaquely.
 	 * This extends Error rather than RuntimeException in case some student
 	 * tries to catch Exception.
@@ -74,11 +74,11 @@ public abstract class Node {
 	 * Stop the node and don't return. Please make sure to call this at the end
 	 * of any overriding stop.
 	 * 
-	 * This method should only be used for logging purposes, since you are not
-	 * guaranteed that it will be called for each crash (especially in an
-	 * emulation)
+	 * Overriding this method should only be used for logging purposes, since
+	 * you are not guaranteed that it will be called for each crash (especially
+	 * in an emulation)
 	 */
-	public void stop() {
+	public void fail() {
 		throw new NodeCrashException();
 	}
 
@@ -202,8 +202,7 @@ public abstract class Node {
 		File f = new File(Utility.realFilename(addr, filename));
 		return new PersistentStorageWriter(this, f, append);
 	}
-	
-	
+
 	/**
 	 * Called before any modification of persistent storage. Tells the manager
 	 * to check whether we should crash or not.

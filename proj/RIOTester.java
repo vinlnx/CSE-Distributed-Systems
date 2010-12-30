@@ -94,7 +94,7 @@ public class RIOTester extends RIONode {
 		logError("FAILURE OF THE RIO MESSAGE LAYER!!  Received " + i
 				+ " instead of " + receivedNums.get(from) + " from " + from);
 		failed = true;
-		stop();
+		fail();
 	}
 
 	/**
@@ -120,7 +120,7 @@ public class RIOTester extends RIONode {
 				if (++numFinished == RIONode.NUM_NODES) {
 					// If we are finished with everything then stop and don't
 					// schedule another timeout
-					stop();
+					fail();
 				}
 				doAgain = true;
 			}

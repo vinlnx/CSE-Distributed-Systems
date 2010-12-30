@@ -331,15 +331,8 @@ public class Emulator extends Manager {
 		try {
 			node.start();
 		} catch (NodeCrashException e) {
-			if (!failed) {
-				quitNode();
-			}
+			failNode();
 		}
-	}
-
-	private void quitNode() {
-		killServer();
-		stop();
 	}
 	
 	private NodeCrashException failNode() {
@@ -348,10 +341,14 @@ public class Emulator extends Manager {
 	}
 	
 	private NodeCrashException killNode() {
+		if (node == null) {
+			return null;
+		}
+		
 		NodeCrashException crash = null;
 		
 		try {
-			node.stop();
+			node.fail();
 		} catch (NodeCrashException e) {
 			crash = e;
 		}
@@ -366,6 +363,10 @@ public class Emulator extends Manager {
 	}
 	
 	private void killServer() {
+		if (server == null) {
+			return;
+		}
+		
 		if (!IOFinished) {
 			server.close();
 			IOFinished = true;
@@ -652,9 +653,7 @@ public class Emulator extends Manager {
 				if(t == null) {
 					e.printStackTrace();
 				} else if (t instanceof NodeCrashException) {
-					if (!failed) {
-						quitNode();
-					}
+					failNode();
 				} else {
 					t.printStackTrace();
 				}
@@ -709,9 +708,7 @@ public class Emulator extends Manager {
 			try{
 				node.onReceive(pkt.getSrc(), pkt.getProtocol(), pkt.getPayload());
 			} catch (NodeCrashException e) {
-				if (!failed) {
-					quitNode();
-				}
+				failNode();
 			}
 		}
 		// drop if not for me. This can happen if we took a port that was recently occupied by another node
@@ -733,9 +730,7 @@ public class Emulator extends Manager {
 		try{
 			node.onCommand(msg);
 		} catch (NodeCrashException e) {
-			if (!failed) {
-				quitNode();
-			}
+			failNode();
 		}
 	}
 	
