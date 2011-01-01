@@ -117,7 +117,7 @@ public class NodeServer implements Runnable {
 	
 	protected void close() {
 		try {
-			Packet fin = new Packet(address);
+			Packet fin = Packet.getFinPacket(address);
 			send(fin.pack());
 
 			while (!gotFIN) {

@@ -41,9 +41,9 @@ public class Simulator extends Manager {
 	 * @throws IllegalArgumentException
 	 *             If the arguments provided to the program are invalid
 	 */
-	public Simulator(Class<? extends Node> nodeImpl, Long seed)
-			throws IllegalArgumentException {
-		super(nodeImpl);
+	public Simulator(Class<? extends Node> nodeImpl, Long seed, String replayOutputFilename, String replayInputFilename)
+			throws IllegalArgumentException, IOException {
+		super(nodeImpl, seed, replayOutputFilename, replayInputFilename);
 
 		setParser(new SimulationCommandsParser());
 
@@ -77,9 +77,9 @@ public class Simulator extends Manager {
 	 * @throws FileNotFoundException
 	 *             If the command file does not exist
 	 */
-	public Simulator(Class<? extends Node> nodeImpl, FailureLvl failureGen, String commandFile, Long seed)
-			throws IllegalArgumentException, FileNotFoundException {
-		this(nodeImpl, seed);
+	public Simulator(Class<? extends Node> nodeImpl, FailureLvl failureGen, Long seed, String replayOutputFilename, String replayInputFilename, String commandFile)
+			throws IllegalArgumentException, FileNotFoundException, IOException {
+		this(nodeImpl, seed, replayOutputFilename, replayInputFilename);
 
 		cmdInputType = InputType.FILE;
 		userControl = failureGen;
@@ -100,9 +100,9 @@ public class Simulator extends Manager {
 	 * @throws IllegalArgumentException
 	 *             If the arguments provided to the program are invalid
 	 */
-	public Simulator(Class<? extends Node> nodeImpl, FailureLvl failureGen, Long seed)
-			throws IllegalArgumentException {
-		this(nodeImpl, seed);
+	public Simulator(Class<? extends Node> nodeImpl, FailureLvl failureGen, Long seed, String replayOutputFilename, String replayInputFilename)
+			throws IllegalArgumentException , IOException{
+		this(nodeImpl, seed, replayOutputFilename, replayInputFilename);
 		
 		cmdInputType = InputType.USER;
 		userControl = failureGen;
@@ -165,7 +165,7 @@ public class Simulator extends Manager {
 
 					try {
 						// Process user input if there is any
-						String input = keyboard.readLine();
+						String input = Replay.getLine();
 
 						if (input != null) {
 							// A command will be converted into an Event.
@@ -315,7 +315,7 @@ public class Simulator extends Manager {
 		}else{
 			try{
 				System.out.println("Crash node " + n.addr + " before " + description + "? (y/n)");
-				String input = keyboard.readLine().trim();
+				String input = Replay.getLine().trim();
 				if (input.length() != 0 && input.charAt(0) == 'y') {
 					NodeCrashException e = failNode(n.addr);
 					// This function is called by Node, so we need to rethrow
@@ -365,7 +365,7 @@ public class Simulator extends Manager {
 
 			try{
 				System.out.println("Which should be dropped? (space delimited list or just press enter to drop none)");
-				String input = keyboard.readLine().trim();
+				String input = Replay.getLine().trim();
 				// hash set so we don't have to deal with duplicates
 				HashSet<Packet> toBeRemoved = new HashSet<Packet>();
 				
@@ -384,7 +384,7 @@ public class Simulator extends Manager {
 				//   In current implementation, delay takes precedence
 				if(userControl.compareTo(FailureLvl.DELAY) >= 0){		// userControl >= DELAY
 					System.out.println("Which should be delayed? (space delimited list or just press enter to delay none)");
-					input = keyboard.readLine().trim();
+					input = Replay.getLine().trim();
 					
 					if(!input.equals("")){
 						String[] delayList = input.split("\\s+");
@@ -459,7 +459,7 @@ public class Simulator extends Manager {
 
 				if (!nodes.isEmpty()) {
 					System.out.println("Crash which nodes? (space-delimited list of addresses or just press enter)");
-					input = keyboard.readLine().trim();
+					input = Replay.getLine().trim();
 					if(!input.equals("")){
 						String[] crashList = input.split("\\s+");
 						for(String s: crashList){
@@ -471,7 +471,7 @@ public class Simulator extends Manager {
 				// The user could also just use the start command, but not if the input method is file
 				if(!crashedNodes.isEmpty()){
 					System.out.println("Restart which nodes? (space-delimited list of addresses or just press enter)");
-					input = keyboard.readLine().trim();
+					input = Replay.getLine().trim();
 					if(!input.equals("")){
 						String[] restartList = input.split("\\s+");
 						for(String s: restartList){
@@ -523,7 +523,7 @@ public class Simulator extends Manager {
 						System.out.println(i + ": " + currentRoundEvents.get(i).toString());
 					}
 					System.out.println("In what order should the events happen? (enter for in-order)");
-					String input = keyboard.readLine().trim();
+					String input = Replay.getLine().trim();
 
 					if(input.equals("")){
 						for(Event ev: currentRoundEvents){

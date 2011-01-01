@@ -21,6 +21,7 @@ public class SynopticLogger {
 		}
 		
 		try {
+			// TODO: fail if the file exists
 			this.writer = new BufferedWriter(new FileWriter(MessageLayer.synopticLogFilename));
 		} catch (IOException e) {
 			System.out.println("Warning: unable to open logfile '" + MessageLayer.synopticLogFilename + "' for writing.");

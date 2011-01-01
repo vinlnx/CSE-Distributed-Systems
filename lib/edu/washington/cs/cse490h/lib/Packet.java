@@ -23,6 +23,7 @@ public class Packet {
 	private int flags;
 	
 	protected static final byte FIN = 1;
+	protected static final byte REPLAY = 2;
 	
 	private byte[] payload;
 
@@ -55,25 +56,6 @@ public class Packet {
 		this.flags = 0;
 		this.payload = payload;
 	}
-	
-	/**
-	 * Constructs a new FIN packet that is meant to signal a node quit in
-	 * Emulator mode and facilitate connection closing
-	 * 
-	 * @param node
-	 *            The address of the node that is leaving the network
-	 */
-	Packet(int node) {
-		if(!isValid(node, node, Packet.HEADER_SIZE)) {
-			throw new IllegalArgumentException("Arguments passed to constructor of Packet are invalid");
-		}
-		
-		dest = node;
-		src = node;
-		protocol = 0;
-		flags = FIN;
-		payload = new byte[0];
-	}
 
 	/**
 	 * Constructs a new Packet and allows setting of the flags. This should only
@@ -92,7 +74,7 @@ public class Packet {
 	 * @throws IllegalArgumentException
 	 */
 	private Packet(int dest, int src, int protocol, int flags, byte[] payload) throws IllegalArgumentException {
-		if(!isValid(dest, src, payload.length + Packet.HEADER_SIZE)) {
+		if (!isValid(dest, src, payload.length + Packet.HEADER_SIZE)) {
 			throw new IllegalArgumentException("Arguments passed to constructor of Packet are invalid");
 		}
 
@@ -102,7 +84,22 @@ public class Packet {
 		this.flags = flags;
 		this.payload = payload;
 	}
+
+	/**
+	 * Constructs a new FIN packet that is meant to signal a node quit in
+	 * Emulator mode and facilitate connection closing
+	 * 
+	 * @param node
+	 *            The address of the node that is leaving the network
+	 */
+	protected static Packet getFinPacket(int node) {
+		return new Packet(node, node, 0, FIN, new byte[0]);
+	}
 	
+	protected static Packet getReplayPacket(int addr, int protocol, byte[] payload) {
+		return new Packet(addr, addr, protocol, REPLAY, payload);
+	}
+
 	/**
 	 * Provides a string representation of the packet.
 	 * @return A string representation of the packet.

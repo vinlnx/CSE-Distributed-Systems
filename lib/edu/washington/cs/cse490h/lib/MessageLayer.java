@@ -35,7 +35,7 @@ import edu.washington.cs.cse490h.lib.Manager.FailureLvl;
  *  -f --failureLvlInt=<int>          - Failure level, a number between 0 and 4 [default 4]
  *
  * Synoptic Options:
- * -l --synopticLogFilename=<string> - Synoptic log filename [default ]
+ *  -l --synopticLogFilename=<string> - Synoptic log filename [default ]
  *
  * </pre>   
  */
@@ -129,6 +129,19 @@ public class MessageLayer {
 	@Option(value="-l Synoptic log filename", aliases={"-synoptic-logfile"})
 	// TODO: specify a sane default
 	public static String synopticLogFilename = "";
+	
+	/**
+	 * The log filename for replay output
+	 */
+	@Option(value="-o Replay output filename", aliases={"-replay-outfile"})
+	// TODO: specify a sane default
+	public static String replayOutputFilename = "";
+	
+	/**
+	 * The log filename for replay input
+	 */
+	@Option(value="Replay input filename", aliases={"-replay-infile"})
+	public static String replayInputFilename = "";
 	// end option group "Synoptic Options"
 
 
@@ -181,12 +194,12 @@ public class MessageLayer {
 			return;
 		}
 
-		if (nodeClass == "") {
+		if (nodeClass.equals("")) {
 			printError("you must specify a node class with -n.");
 			return;
 		}
 
-		if (synopticLogFilename == "") {
+		if (synopticLogFilename.equals("")) {
 			printWarning("you did not specify a synoptic log file.");
 		} else {
 			System.out.println("synopticLogFilename = " + synopticLogFilename);
@@ -213,11 +226,25 @@ public class MessageLayer {
 			Class<? extends Node> nodeImpl = nodeLoader.loadClass(nodeClass).asSubclass(Node.class);
 
 			if (simulate) {
+				if(commandFile.equals("")) {
+					// Simulation replay only really needs to record user input
+					if (replayOutputFilename.equals("") && replayInputFilename.equals("")) {
+						printWarning("You did not specify a replay input or output file for a user input simulation");
+					} else if (replayOutputFilename.equals(replayInputFilename)) {
+						printError("Replay output and input files are equal");
+						return;
+					} else if (!replayOutputFilename.equals("") && !replayInputFilename.equals("")) {
+						printWarning("Both replay output and input files are specified");
+					} else if (!replayInputFilename.equals("") && seed != null) {
+						printWarning("Both seed and replay input are specified.  Seed will be ignored.");
+					}
+				}
+
 				try {
 					if(!commandFile.equals("")){
-						manager = new Simulator(nodeImpl, failureLvl, commandFile, seed);
+						manager = new Simulator(nodeImpl, failureLvl, seed, replayOutputFilename, replayInputFilename, commandFile);
 					} else {
-						manager = new Simulator(nodeImpl, failureLvl, seed);
+						manager = new Simulator(nodeImpl, failureLvl, seed, replayOutputFilename, replayInputFilename);
 					}
 				} catch (IllegalArgumentException e) {
 					printError("Illegal arguments given to Simulator. Exception: " + e);
@@ -230,15 +257,26 @@ public class MessageLayer {
 
 			} else { //emulate
 				if (routerHostname == "" || routerPort == -1) {
-					printError("for an emulation you must specify router hostname/port");
+					printError("For an emulation you must specify router hostname/port");
 					return;
+				}
+
+				if (replayOutputFilename.equals("") && replayInputFilename.equals("")) {
+					printWarning("You did not specify a replay input or output file");
+				} else if (replayOutputFilename.equals(replayInputFilename)) {
+					printError("Replay output and input files are equal");
+					return;
+				} else if (!replayOutputFilename.equals("") && !replayInputFilename.equals("")) {
+					printWarning("Both replay output and input files are specified");
+				} else if (!replayInputFilename.equals("") && seed != null) {
+					printWarning("Both seed and replay input are specified.  Seed will be ignored.");
 				}
 
 				try {
 					if (!commandFile.equals("")) {
-						manager = new Emulator(nodeImpl, routerHostname, routerPort, failureLvl, commandFile, seed, timestep);
+						manager = new Emulator(nodeImpl, routerHostname, routerPort, failureLvl, seed, timestep, replayOutputFilename, replayInputFilename, commandFile);
 					} else {
-						manager = new Emulator(nodeImpl, routerHostname, routerPort, failureLvl, seed, timestep);
+						manager = new Emulator(nodeImpl, routerHostname, routerPort, failureLvl, seed, timestep, replayOutputFilename, replayInputFilename);
 					}
 				} catch(UnknownHostException e) {
 					printError("Router host name is unkown! Exception: " + e);

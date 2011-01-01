@@ -119,7 +119,7 @@ public class EmulatedNode implements Runnable{
 	 * Close the the connection to the node server
 	 */
 	private synchronized LinkedList<Packet> close() {
-		Packet fin = new Packet(addr);
+		Packet fin = Packet.getFinPacket(addr);
 		send(fin);
 		finished = true;
 

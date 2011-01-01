@@ -1,7 +1,11 @@
 package edu.washington.cs.cse490h.lib;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 
 /**
@@ -26,8 +30,6 @@ public abstract class Manager {
 	protected ArrayList<Timeout> waitingTOs;
 	protected ArrayList<Packet> inTransitMsgs;
 	protected CommandsParser parser;   // parser for commands file
-
-	protected final BufferedReader keyboard;
 	
 	protected SynopticLogger synLogger = new SynopticLogger();
 	
@@ -64,7 +66,7 @@ public abstract class Manager {
 	 * Initialize Manager. 
 	 * @param time Starting time in microseconds
 	 */
-	protected Manager(Class<? extends Node> nodeImpl) throws IllegalArgumentException{
+	protected Manager(Class<? extends Node> nodeImpl, Long seed, String replayOutputFilename, String replayInputFilename) throws IllegalArgumentException, IOException{
 		pktsSent = 0;
 		waitingTOs = new ArrayList<Timeout>();
 		inTransitMsgs = new ArrayList<Packet>();
@@ -87,7 +89,28 @@ public abstract class Manager {
 			throw new IllegalArgumentException("Error while executing get*rate functions: " + e); 
 		}
 		
-		keyboard = new BufferedReader(new InputStreamReader(System.in));
+		Replay.parent = this;
+
+		if(!replayOutputFilename.equals("")) {
+			File f = new File(replayOutputFilename);
+			if (f.exists()) {
+				throw new IllegalArgumentException("Replay output file already exists");
+			}
+			Replay.replayOut = new DataOutputStream(new FileOutputStream(replayOutputFilename));
+		} else {
+			Replay.replayOut = null;
+		}
+
+		if(!replayInputFilename.equals("")) {
+			this.seed = Replay.init(new DataInputStream(new FileInputStream(replayInputFilename)));
+		} else {
+			Replay.init(null);
+			if (seed == null) {
+				this.seed = System.currentTimeMillis();
+			} else {
+				this.seed = seed;
+			}
+		}
 	}
 
 	/**
