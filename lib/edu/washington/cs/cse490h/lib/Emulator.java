@@ -22,14 +22,40 @@ public class Emulator extends Manager {
 	private int address;
 	private long timeStep;
 	
-	private String trawlerName;
-	private int trawlerPort;
+	private String routerName;
+	private int routerPort;
 
+	// if the node or server are down
 	private boolean failed;
 	private boolean IOFinished;
 
-	public Emulator(Class<? extends Node> nodeImpl, String trawlerName,
-			int trawlerPort, Long seed, long timeStep,
+	/**
+	 * Base constructor for the Emulator. Does most of the work, but the command
+	 * input method and failure level should be set before calling this
+	 * constructor.
+	 * 
+	 * @param nodeImpl
+	 *            The Class object for the student's node implementation
+	 * @param routerName
+	 *            The name of the machine on which the router is running
+	 * @param routerPort
+	 *            The port on which the router listens
+	 * @param seed
+	 *            Seed for the random number generator. Can be null to use the
+	 *            current time as a seed
+	 * @param timeStep
+	 *            The number of milliseconds to wait between rounds
+	 * @param replayOutputFilename
+	 *            The log file for future relays of the current execution
+	 * @param replayInputFilename
+	 *            The log file to replay
+	 * @throws IllegalArgumentException
+	 *             If the arguments provided to the program are invalid
+	 * @throws IOException
+	 *             If creating the user input reader fails
+	 */
+	public Emulator(Class<? extends Node> nodeImpl, String routerName,
+			int routerPort, Long seed, long timeStep,
 			String replayOutputFilename, String replayInputFilename)
 			throws IOException, IllegalArgumentException {
 		super(nodeImpl, seed, replayOutputFilename, replayInputFilename);
@@ -49,13 +75,9 @@ public class Emulator extends Manager {
 		}
 		System.out.println("with seed: " + this.seed);
 		Utility.randNumGen = new Random(this.seed);
-
-		if(Replay.replayOut != null) {
-			Replay.replayOut.writeLong(this.seed);
-		}
 		
-		this.trawlerName = trawlerName;
-		this.trawlerPort = trawlerPort;
+		this.routerName = routerName;
+		this.routerPort = routerPort;
 
 		failed = false;
 
@@ -301,11 +323,20 @@ public class Emulator extends Manager {
 		if (node != null) {
 			System.out.println(node.addr + ": " + node.toString());
 			logEvent(node, "STOPPED");
+		} else {
+			System.out.println("failed");
 		}
 
+		this.synLogger.stop();
 		System.exit(0);
 	}
 
+	/******************* Methods to fail or restart a node *******************/
+
+	/**
+	 * Start up a node, crashed or brand new. If the node is alive, this method
+	 * will crash it first.
+	 */
 	private void startNode() {
 		if (node != null) {
 			failNode();
@@ -316,6 +347,7 @@ public class Emulator extends Manager {
 		}
 
 		if (Replay.isReplaying()) {
+			// grab the address from the replay input file
 			try {
 				Packet addrPkt = Replay.getPacket();
 				
@@ -328,9 +360,9 @@ public class Emulator extends Manager {
 				throw new Replay.ReplayException("Address packet expected, but packet was corrupted");
 			}
 		} else {
-			// start up the server
+			// start up the server and get an address from it
 			try {
-				server = new NodeServer(trawlerName, trawlerPort, this);			
+				server = new NodeServer(routerName, routerPort, this);			
 			} catch (IOException e) {
 				System.err.println("Error while constructing server");
 				e.printStackTrace();
@@ -374,12 +406,26 @@ public class Emulator extends Manager {
 			failNode();
 		}
 	}
-	
+
+	/**
+	 * Fail the node. This attempts to kill both the node/its saved state, and
+	 * the server.
+	 * 
+	 * @return The exception thrown after calling the fail() method. This is so,
+	 *         if the stack includes methods in Node, we can rethrow the
+	 *         Exception as necessary
+	 */
 	private NodeCrashException failNode() {
 		killServer();
 		return killNode();
 	}
-	
+
+	/**
+	 * Kill the node and its associated data structures.
+	 * 
+	 * @return The exception thrown after calling the fail() method. See
+	 *         failNode() for why this happens
+	 */
 	private NodeCrashException killNode() {
 		if (node == null) {
 			return null;
@@ -401,7 +447,10 @@ public class Emulator extends Manager {
 		
 		return crash;
 	}
-	
+
+	/**
+	 * Kill the NodeServer and get rid of the in transit messages.
+	 */
 	private void killServer() {
 		if (server == null) {
 			return;
@@ -442,10 +491,22 @@ public class Emulator extends Manager {
 		}
 	}
 	
+	/**
+	 * Called by the NodeServer to signal that it has finished execution
+	 */
 	protected void IOFinish() {
 		IOFinished = true;
 	}
-	
+
+	/****************** Methods to check and handle events ******************/
+
+	/**
+	 * Goes through all of the in transit messages and decides whether to drop,
+	 * delay, or deliver.
+	 * 
+	 * @param currentRoundEvents
+	 *            The list of the current round's events that we should add to
+	 */
 	private void checkInTransit(ArrayList<Event> currentRoundEvents) {
 		// Load in all the newly received messages
 		Packet pkt;
@@ -573,6 +634,12 @@ public class Emulator extends Manager {
 		}
 	}
 
+	/**
+	 * Checks whether to crash a live node
+	 * 
+	 * @param currentRoundEvents
+	 *            The list of the current round's events that we should add to
+	 */
 	private void checkCrash(ArrayList<Event> currentRoundEvents) {
 		// See if we should crash.
 		// Failures and restarts specified in the file are deprecated
@@ -594,6 +661,9 @@ public class Emulator extends Manager {
 		}
 	}
 
+	/**
+	 * Checks whether to recover a crashed node
+	 */
 	private void checkRecover() {
 		// See if we should recover
 		if (userControl.compareTo(FailureLvl.CRASH) < 0) { // userControl < CRASH
@@ -618,8 +688,11 @@ public class Emulator extends Manager {
 	}
 
 	/**
-	 * Check to see if any timeouts are supposed to fire during the current
-	 * time step
+	 * Check to see if any timeouts are supposed to fire during the current time
+	 * step
+	 * 
+	 * @param currentRoundEvents
+	 *            The list of the current round's events that we should add to
 	 */
 	private void checkTimeouts(ArrayList<Event> currentRoundEvents) {
 		ArrayList<Timeout> currentTOs = waitingTOs;
@@ -644,6 +717,7 @@ public class Emulator extends Manager {
 	 * in the command file!
 	 * 
 	 * @param currentRoundEvents
+	 *            The list of the current round's events that we should add to
 	 */
 	private void executeEvents(ArrayList<Event> currentRoundEvents) {
 		if(userControl == FailureLvl.EVERYTHING){
@@ -657,6 +731,7 @@ public class Emulator extends Manager {
 					String input = Replay.getLine().trim();
 
 					if(input.equals("")){
+						// enter for in-order
 						for(Event ev: currentRoundEvents){
 							handleEvent(ev);
 						}
@@ -693,7 +768,13 @@ public class Emulator extends Manager {
 			}
 		}
 	}
-	
+
+	/**
+	 * Process an event.
+	 * 
+	 * @param ev
+	 *            The event that should be processed
+	 */
 	private void handleEvent(Event ev){
 		switch(ev.t){
 		case FAILURE:
@@ -738,16 +819,20 @@ public class Emulator extends Manager {
 	}
 
 	/**
-	 * Send the pkt to the specified node
+	 * Create a packet and put it on the channel. Crashes in the middle of a
+	 * broadcast can be modeled by a post-send crash, plus a sequence of dropped
+	 * messages
 	 * 
-	 * @param from
+	 * @param fromNode
 	 *            The node that is sending the packet
 	 * @param to
-	 *            Int specifying the destination node
-	 * @param pkt
-	 *            The packet to be sent, serialized to a byte array
+	 *            Integer specifying the destination node
+	 * @param protocol
+	 *            The protocol of the message
+	 * @param payload
+	 *            The payload to be sent, serialized to a byte array
 	 * @throws IllegalArgumentException
-	 *             If the arguments are invalid
+	 *             If the send is invalid
 	 */
 	@Override
 	protected void sendPkt(Node fromNode, int to, int protocol, byte[] payload) throws IllegalArgumentException {
@@ -764,6 +849,14 @@ public class Emulator extends Manager {
 		return;
 	}
 
+	/**
+	 * Send a packet off to the router.
+	 * 
+	 * @param destAddr
+	 *            The virtual address of the destination
+	 * @param pkt
+	 *            The serialized version of the Packet to be sent
+	 */
 	private void sendToRouter(int destAddr, byte[] pkt) {
 		if(!Replay.isReplaying()) {
 			server.send(pkt);
@@ -771,6 +864,12 @@ public class Emulator extends Manager {
 		// else ignore it
 	}
 
+	/**
+	 * Actually deliver an in transit packet.
+	 * 
+	 * @param pkt
+	 *            The packet that should be delivered
+	 */
 	private void deliverPkt(Packet pkt) {
 		if(node == null) {
 			return;
@@ -789,10 +888,10 @@ public class Emulator extends Manager {
 	}
 
 	/**
-	 * Sends the msg to the the specified node 
-	 * @param nodeAddr Address of the node to whom the message should be sent
-	 * @param msg The msg to send to the node
-	 * @return True if msg sent, false if address is not valid
+	 * Sends command to the node
+	 * 
+	 * @param msg
+	 *            The msg to send to the node
 	 */
 	private void sendNodeCmd(String msg) {
 		if(node == null) {

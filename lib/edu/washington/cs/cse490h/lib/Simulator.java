@@ -13,7 +13,8 @@ import java.util.Random;
 import edu.washington.cs.cse490h.lib.Node.NodeCrashException;
 
 /**
- * Manages a simulation.
+ * Manages a simulation, where all nodes are running in the same process, in the
+ * same thread
  */
 public class Simulator extends Manager {
 
@@ -38,8 +39,14 @@ public class Simulator extends Manager {
 	 * @param seed
 	 *            Seed for the random number generator. Can be null to use the
 	 *            current time as a seed
+	 * @param replayOutputFilename
+	 *            The log file for future relays of the current execution
+	 * @param replayInputFilename
+	 *            The log file to replay
 	 * @throws IllegalArgumentException
 	 *             If the arguments provided to the program are invalid
+	 * @throws IOException
+	 *             If creating the user input reader fails
 	 */
 	public Simulator(Class<? extends Node> nodeImpl, Long seed, String replayOutputFilename, String replayInputFilename)
 			throws IllegalArgumentException, IOException {
@@ -68,14 +75,20 @@ public class Simulator extends Manager {
 	 *            The Class object for the student's node implementation
 	 * @param failureGen
 	 *            How failures should be generated
-	 * @param commandfile
-	 *            File containing the list of commands
 	 * @param seed
 	 *            Seed for the RNG. This can be null.
+	 * @param replayOutputFilename
+	 *            The log file for future relays of the current execution
+	 * @param replayInputFilename
+	 *            The log file to replay
+	 * @param commandfile
+	 *            File containing the list of commands
 	 * @throws IllegalArgumentException
 	 *             If the arguments provided to the program are invalid
 	 * @throws FileNotFoundException
 	 *             If the command file does not exist
+	 * @throws IOException
+	 *             If creating the user input reader fails
 	 */
 	public Simulator(Class<? extends Node> nodeImpl, FailureLvl failureGen, Long seed, String replayOutputFilename, String replayInputFilename, String commandFile)
 			throws IllegalArgumentException, FileNotFoundException, IOException {
@@ -97,8 +110,14 @@ public class Simulator extends Manager {
 	 *            How failures should be generated
 	 * @param seed
 	 *            Seed for the RNG. This can be null.
+	 * @param replayOutputFilename
+	 *            The log file for future relays of the current execution
+	 * @param replayInputFilename
+	 *            The log file to replay
 	 * @throws IllegalArgumentException
 	 *             If the arguments provided to the program are invalid
+	 * @throws IOException
+	 *             If creating the user input reader fails
 	 */
 	public Simulator(Class<? extends Node> nodeImpl, FailureLvl failureGen, Long seed, String replayOutputFilename, String replayInputFilename)
 			throws IllegalArgumentException , IOException{
@@ -266,11 +285,11 @@ public class Simulator extends Manager {
 
 	/**
 	 * Fail a node. This method updates data structures, removes the failed
-	 * nodes's timeouts and calls its stop() method
+	 * nodes's timeouts and calls its fail() method
 	 * 
 	 * @param node
 	 *            The node address to fail
-	 * @return The exception thrown after calling the stop() method. This is so,
+	 * @return The exception thrown after calling the fail() method. This is so,
 	 *         if the stack includes methods in Node, we can rethrow the
 	 *         Exception as necessary
 	 */
@@ -332,7 +351,7 @@ public class Simulator extends Manager {
 
 	/**
 	 * Goes through all of the in transit messages and decides whether to drop,
-	 * delay, or deliver. Also reorders delivered messages.
+	 * delay, or deliver.
 	 * 
 	 * @param currentRoundEvents
 	 *            The list of the current round's events that we should add to
@@ -431,6 +450,7 @@ public class Simulator extends Manager {
 	 * Checks whether to crash any live node or restart any failed node
 	 * 
 	 * @param currentRoundEvents
+	 *            The list of the current round's events that we should add to
 	 */
 	private void checkCrash(ArrayList<Event> currentRoundEvents) {
 		// Failures specified in the file are deprecated
@@ -486,17 +506,20 @@ public class Simulator extends Manager {
 	}
 
 	/**
-	 * Check to see if any timeouts are supposed to fire during the current
-	 * time step
+	 * Check to see if any timeouts are supposed to fire during the current time
+	 * step
+	 * 
+	 * @param currentRoundEvents
+	 *            The list of the current round's events that we should add to
 	 */
 	private void checkTimeouts(ArrayList<Event> currentRoundEvents) {
 		ArrayList<Timeout> currentTOs = waitingTOs;
 		waitingTOs = new ArrayList<Timeout>();
-		
+
 		Iterator<Timeout> iter = currentTOs.iterator();
-		while(iter.hasNext()) {
+		while (iter.hasNext()) {
 			Timeout to = iter.next();
-			if(now() >= to.fireTime && !canceledTimeouts.contains(to)) {
+		if(now() >= to.fireTime && !canceledTimeouts.contains(to)) {
 				iter.remove();
 				currentRoundEvents.add(new Event(to));
 			}
@@ -513,6 +536,7 @@ public class Simulator extends Manager {
 	 * in the command file!
 	 * 
 	 * @param currentRoundEvents
+	 *            The list of the current round's events that we should add to
 	 */
 	private void executeEvents(ArrayList<Event> currentRoundEvents) {
 		if(userControl == FailureLvl.EVERYTHING){
@@ -526,6 +550,7 @@ public class Simulator extends Manager {
 					String input = Replay.getLine().trim();
 
 					if(input.equals("")){
+						// enter for in-order
 						for(Event ev: currentRoundEvents){
 							handleEvent(ev);
 						}
@@ -568,7 +593,6 @@ public class Simulator extends Manager {
 	 * 
 	 * @param ev
 	 *            The event that should be processed
-	 * @return True if we should advance time, False otherwise
 	 */
 	private void handleEvent(Event ev){
 
@@ -616,17 +640,20 @@ public class Simulator extends Manager {
 			System.err.println("Shouldn't happen. TIME here?");
 		}
 	}
-	
+
 	/**
-	 * Put the packet on the channel. Crashes in the middle of a broadcast can
-	 * be modeled by a post-send crash, plus a sequence of dropped messages
+	 * Create a packet and put it on the channel. Crashes in the middle of a
+	 * broadcast can be modeled by a post-send crash, plus a sequence of dropped
+	 * messages
 	 * 
-	 * @param from
+	 * @param fromNode
 	 *            The node that is sending the packet
 	 * @param to
 	 *            Integer specifying the destination node
-	 * @param pkt
-	 *            The packet to be sent, serialized to a byte array
+	 * @param protocol
+	 *            The protocol of the message
+	 * @param payload
+	 *            The payload to be sent, serialized to a byte array
 	 * @throws IllegalArgumentException
 	 *             If the send is invalid
 	 */
@@ -674,7 +701,6 @@ public class Simulator extends Manager {
 	 *            The address of the sender
 	 * @param pkt
 	 *            The packet that should be delivered
-	 * @return True if the packet was delivered, false if not
 	 */
 	private void deliverPkt(int destAddr, Node destNode, int srcAddr, Packet pkt) {
 		if(!isNodeValid(destAddr)) {
@@ -691,13 +717,12 @@ public class Simulator extends Manager {
 	}
 
 	/**
-	 * Sends command to the the specified node
+	 * Sends command to the specified node
 	 * 
 	 * @param nodeAddr
 	 *            Address of the node to whom the message should be sent
 	 * @param msg
 	 *            The msg to send to the node
-	 * @return True if msg sent, false if not
 	 */
 	private void sendNodeCmd(int nodeAddr, String msg) {
 		if(!isNodeValid(nodeAddr)) {

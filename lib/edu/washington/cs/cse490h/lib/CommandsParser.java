@@ -9,39 +9,25 @@ import java.util.ArrayList;
 
 /**
  * <pre>
- * CommandsParser -- parses topology and keyboard commands
+ * CommandsParser -- parses file and keyboard commands
  * 
- * COMMANDS ARE CASE SENSITIVE. 
- * 
- * Pay attention to the spaces.
- * Commands are parsed by using the spaces as delimiters thus it is very important
- * to put spaces where required.
+ * COMMANDS ARE CASE SENSITIVE.
  *
- * The topology file and the keyboard input file have the same format;
+ * The command file and the keyboard input file have the same format;
  * all the same commands can be entered from either one.  Both
  * are line-oriented (one command per line). 
- * Nodes (e.g., a, b) are referred to by their FishnetAddress (0..254).
+ * Nodes (e.g., a, b) are referred to by their virtual address (0..254).
+ * Emulation and Simulation modes have different commands.  Emulation
+ * does not include addresses, and this is denoted by the [n] notation.
  *
  *	[// | #] <comment>  -- any line starting with // or # is ignored
- *	edge a b [lossRate <double>] [delay <long>] [bw <int>]
- *		-- this creates an edge between a and b, with the
- *		specified loss rate, delay (in milliseconds), and bw (in KB/s),
- *		or changes the specifics for an existing link
- *		defaults: 0 lossRate, 1 msec delay, and 10Kb/s bw
- *	time [+ ]x  -- any subsequent command is delayed until simulation/real
- *			has reached x (or now + x, if + is used), in milliseconds from start
- *                    NOTE: IF + IS USED THERE MUST BE A SPACE BETWEEN + AND x
- *	fail a [b] -- this removes node a (if b is not specified) or an edge (if it is)
- *	restart a [b]  -- this restarts a node or edge.  previous information about
- *		the node/edge is preserved
+ *	time -- any subsequent command is delayed until the next time step
+ *	fail [n] -- this crashes a node n
+ *	restart [n]  -- this restarts a node.
  *	echo text -- print the text 
  *	exit  -- cleanly stop the simulation/emulation run and print statistics
- *	a <msg>  -- deliver text <msg> to node a (for simulation mode only)
- *	<msg> -- deliver text <msg> to this node (for emulation mode only)
+ *	[n] <msg>  -- deliver command <msg> to node n
  *		Note that msg cannot start with any keyword defined above
- *
- * To avoid a race condition with respect to starting up the user protocol code,
- * the simulator will only process keyboard commands at time >  0.
  * </pre>
  */
 
@@ -56,10 +42,14 @@ public abstract class CommandsParser {
 	}
 
 	/**
-	 * Open and process a topology file.
-	 * @param filename The name of the command file.
-	 * @throws FileNotFoundException If the named filed does not exist, is a directory rather than a regular file, or
-	 *                               for some other reason cannot be opened for reading     
+	 * Open and process a command file.
+	 * 
+	 * @param filename
+	 *            The name of the command file.
+	 * @throws FileNotFoundException
+	 *             If the named filed does not exist, is a directory rather than
+	 *             a regular file, or for some other reason cannot be opened for
+	 *             reading
 	 */
 	protected ArrayList<Event> parseFile(String filename) throws FileNotFoundException {
 		if(filename == null) {
@@ -124,18 +114,24 @@ public abstract class CommandsParser {
 	/******************** Protected Functions ********************/
 
 	/**
-	 * Call manager.stop() if the command is exit. Actually will accept exit followed by anything
-	 * Thus "exit" and "exit blahblah" will both cause fishnet to exit.
-	 * However "exitblahblah" will not.
+	 * Command to exit the manager.
 	 */
 	protected Event exit(String[] cmd) {
 		return new Event(-1, Event.EventType.EXIT);
 	}
 
+	/**
+	 * Parse a node command.
+	 * 
+	 * @param cmd
+	 *            The tokens of the command
+	 * @return The event representing a node command
+	 */
 	protected abstract Event parseNodeCmd(String[] cmd);
 
 	/**
-	 * Returns true if line should be skipped, either because its empty or is a comment
+	 * Returns true if line should be skipped, either because its empty or is a
+	 * comment
 	 */
 	protected boolean skipLine(String line) {
 		if(line.equals("")) {
@@ -150,8 +146,10 @@ public abstract class CommandsParser {
 	}
 
 	/**
-	 * Parses exit, echo and node commands
+	 * Parses exit, time, echo and node commands
+	 * 
 	 * @param cmd
+	 *            The tokens of the command
 	 */
 	protected Event parseCommonCmds(String[] cmd) {
 		if(cmd[0].equals("exit")) {
@@ -169,28 +167,26 @@ public abstract class CommandsParser {
 		return parseNodeCmd(cmd);
 	}
 
-	// These following functions are overriden by TrawlerCommandsParser so that it can notify trawler of change
-
-	protected void printStrArray(String[] strArray, int startIndex, int endIndex, PrintStream stream) {
+	/**
+	 * Prints a string array. For use specifically with the echo command.
+	 * 
+	 * @param strArray
+	 *            The string array that is to be printed
+	 * @param stream
+	 *            The stream to print to
+	 */
+	protected void printStrArray(String[] strArray, PrintStream stream) {
 		if(strArray == null || stream == null) {
 			return;
 		}
-		endIndex = Math.min(endIndex, strArray.length);
-		for(int i = startIndex; i < endIndex; i++) {
+		for(int i = 0; i < strArray.length; i++) {
 			stream.print(strArray[i] + " ");
 		}
 		stream.println();
 	}
 
-	protected void printStrArray(String[] strArray, PrintStream stream) {
-		printStrArray(strArray, 0, strArray.length, stream);
-	}
-
 	/******************** Private Functions ********************/
 
-	/**
-	 * @deprecated
-	 */
 	private Event parseFail(String[] cmd) {
 		if(cmd[0].equals("fail")) {
 			return new Event(Integer.parseInt(cmd[1]), Event.EventType.FAILURE);

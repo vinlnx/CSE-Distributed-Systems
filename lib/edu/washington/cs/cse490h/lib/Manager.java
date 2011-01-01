@@ -9,9 +9,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 
 /**
- * <pre>   
- * Abstract class defining generic routines for running network code under MessageLayer
- * </pre>   
+ * Abstract class defining generic routines for running network code under the
+ * MessageLayer
  */
 public abstract class Manager {
 	protected static final int BROADCAST_ADDRESS = 255;
@@ -44,6 +43,9 @@ public abstract class Manager {
 	protected InputType cmdInputType;
 	protected enum InputType{ USER, FILE }
 	
+	/**
+	 * Class representing a timeout
+	 */
 	protected class Timeout{
 		protected Node node;
 		protected long fireTime;
@@ -60,13 +62,30 @@ public abstract class Manager {
 			return node.addr + ": " + cb + " at " + fireTime;
 		}
 	}
-	private long time;
 	
+	private long time;
+
 	/**
-	 * Initialize Manager. 
-	 * @param time Starting time in microseconds
+	 * Initialize Manager. Grabs all the relevant information from the students
+	 * Node class, generates the seed, and initializes replay.
+	 * 
+	 * @param nodeImpl
+	 *            The Class object for the student's node implementation
+	 * @param seed
+	 *            Seed for the random number generator. Can be null to use the
+	 *            current time as a seed
+	 * @param replayOutputFilename
+	 *            The log file for future relays of the current execution
+	 * @param replayInputFilename
+	 *            The log file to replay
+	 * @throws IllegalArgumentException
+	 *             If the arguments provided to the program are invalid
+	 * @throws IOException
+	 *             If creating the user input reader fails
 	 */
-	protected Manager(Class<? extends Node> nodeImpl, Long seed, String replayOutputFilename, String replayInputFilename) throws IllegalArgumentException, IOException{
+	protected Manager(Class<? extends Node> nodeImpl, Long seed,
+			String replayOutputFilename, String replayInputFilename)
+			throws IllegalArgumentException, IOException {
 		pktsSent = 0;
 		waitingTOs = new ArrayList<Timeout>();
 		inTransitMsgs = new ArrayList<Packet>();
@@ -74,7 +93,8 @@ public abstract class Manager {
 		
 		this.nodeImpl = nodeImpl;
 		try{
-			// this block is not actually needed when the failure generator is the user, but should work anyways
+			// this block is not actually needed when the failure generator is
+			// the user, but should work anyways
 			failureRate = (Double)nodeImpl.getMethod("getFailureRate", (Class<?>[])null)
 									.invoke(null, (Object[])null);
 			recoveryRate = (Double)nodeImpl.getMethod("getRecoveryRate", (Class<?>[])null)
@@ -92,6 +112,7 @@ public abstract class Manager {
 		Replay.parent = this;
 
 		if(!replayOutputFilename.equals("")) {
+			// initialize the replay output file
 			File f = new File(replayOutputFilename);
 			if (f.exists()) {
 				throw new IllegalArgumentException("Replay output file already exists");
@@ -102,8 +123,10 @@ public abstract class Manager {
 		}
 
 		if(!replayInputFilename.equals("")) {
+			// initialize the replay input file and grab the old seed
 			this.seed = Replay.init(new DataInputStream(new FileInputStream(replayInputFilename)));
 		} else {
+			// make a new seed and initialize keyboard input
 			Replay.init(null);
 			if (seed == null) {
 				this.seed = System.currentTimeMillis();
@@ -111,14 +134,22 @@ public abstract class Manager {
 				this.seed = seed;
 			}
 		}
+		
+		if(Replay.replayOut != null) {
+			Replay.replayOut.writeLong(this.seed);
+		}
 	}
 
 	/**
-	 * Starts the Manager. This runs in an infinite loop until network is stopped
-	 * Instantiates nodes and gets them running
+	 * Executes the manager. The manager will sit in this method until it exits.
 	 */
 	protected abstract void start();
 
+	/**
+	 * Helpful stats about the manager that is exiting.
+	 * 
+	 * @return The string that contains the helpful stats
+	 */
 	protected String stopString(){
 		String s = "MessageLayer exiting.\nNumber of packets sent: " + String.valueOf(pktsSent);
 		if(userControl != FailureLvl.EVERYTHING){
@@ -128,7 +159,7 @@ public abstract class Manager {
 	}
 	
 	/**
-	 * Stops MessageLayer. Normally this method should not return
+	 * Stops MessageLayer. This method should not return
 	 */
 	protected void stop() {
 		System.out.println(stopString());
@@ -136,12 +167,20 @@ public abstract class Manager {
 	}
 
 	/**
-	 * Send the pkt to the specified node
-	 * @param from	The node that is sending the packet
-	 * @param to	Integer specifying the destination node
-	 * @param pkt	The payload to be sent
-	 * @return True	if the packet was sent, false otherwise
-	 * @throws IllegalArgumentException	If the arguments are invalid
+	 * Create a packet and put it on the channel. Crashes in the middle of a
+	 * broadcast can be modeled by a post-send crash, plus a sequence of dropped
+	 * messages
+	 * 
+	 * @param fromNode
+	 *            The node that is sending the packet
+	 * @param to
+	 *            Integer specifying the destination node
+	 * @param protocol
+	 *            The protocol of the message
+	 * @param payload
+	 *            The payload to be sent, serialized to a byte array
+	 * @throws IllegalArgumentException
+	 *             If the send is invalid
 	 */
 	protected void sendPkt(Node fromNode, int to, int protocol, byte[] payload) throws IllegalArgumentException {
 		int from = fromNode.addr;
@@ -154,21 +193,58 @@ public abstract class Manager {
 		pktsSent++;
 	}
 
+	/**
+	 * Sets the command parser that should be used.
+	 * 
+	 * @param parser
+	 *            The command parser instance to use
+	 */
 	protected void setParser(CommandsParser parser) {
 		this.parser = parser;
 	}
-	
+
+	/**
+	 * Add a timer interrupt that will execute in a particular timestep.
+	 * 
+	 * @param node
+	 *            The node that added the the interrupt
+	 * @param timeout
+	 *            How many time steps to wait before firing
+	 * @param cb
+	 *            The callback to call when the timer fires
+	 */
 	protected void addTimeout(Node node, long timeout, Callback cb) {
 		waitingTOs.add(new Timeout(node, now() + timeout, cb));
 	}
 	
+	/**
+	 * Gets the current time step of the execution.
+	 * 
+	 * @return	The time step
+	 */
 	public long now(){
 		return time;
 	}
-	
+
+	/**
+	 * Check if we should crash before a write.
+	 * 
+	 * @param n
+	 *            The node that is trying to write to the disc.
+	 * @param description
+	 *            The description of the write so the user knows what caused the
+	 *            crash
+	 */
 	protected abstract void checkWriteCrash(Node n, String description);
-	
-	protected void setTime(long time){
+
+	/**
+	 * Set the current time. This should be used at the beginning, and after
+	 * each time step.
+	 * 
+	 * @param time
+	 *            The time to set
+	 */
+	protected void setTime(long time) {
 		this.time = time;
 	}
 }
