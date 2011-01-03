@@ -77,6 +77,7 @@ public class RIOPacket {
 			out.write(payload, 0, payload.length);
 
 			out.flush();
+			out.close();
 			return byteStream.toByteArray();
 		} catch (IOException e) {
 			return null;

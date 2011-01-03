@@ -10,14 +10,16 @@ public class Protocol {
 	public static final int ACK = 1;
 
 	// Protocols for 2PC
-	public static final int VOTEREQ_PKT = 100;
-	public static final int VOTE_PKT = 101;
-	public static final int DECISION_PKT = 102;
-	public static final int DECISIONREQ_PKT = 103;
+	public static final int VOTEREQ_PKT = 10;
+	public static final int VOTE_PKT = 11;
+	public static final int DECISION_PKT = 12;
+	public static final int DECISIONREQ_PKT = 13;
 
 	// Protocols for Testing Reliable in-order message delivery
 	// These should be RIOPacket protocols
-	public static final int RIOTEST_PKT = 200;
+	public static final int RIOTEST_PKT = 20;
+	
+	public static final int MAX_PROTOCOL = 127;
 
 	/**
 	 * Tests if this is a valid protocol for a Packet

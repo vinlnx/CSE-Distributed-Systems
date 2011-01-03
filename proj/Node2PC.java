@@ -36,7 +36,7 @@ public class Node2PC extends Node{
 	public static double getDropRate(){ return 5/100.0; }
 	public static double getDelayRate(){ return 10/100.0; }
 
-	public static int NUM_NODES = 3;
+	public static int NUM_NODES = 4;
 	public static int TIMEOUT = 4;
 
 	// 2PC state
@@ -97,7 +97,7 @@ public class Node2PC extends Node{
 	 * 
 	 * @throws IOException
 	 */
-	private void recoverWithLog() throws IOException{
+	private void recoverWithLog() throws IOException {
 		PersistentStorageReader logReader = getReader("log");
 
 		boolean votedYes = false;
@@ -223,7 +223,7 @@ public class Node2PC extends Node{
 		
 		logOutput("Timed out in " + waitPhase + " waiting for a packet from: " + waitNode);
 		
-		if(coordinator){
+		if (coordinator) {
 			// We are the coordinator, and the only timeouts after we send the
 			// vote request are for votes
 			if (!votes.containsKey(waitNode)) {
@@ -233,14 +233,14 @@ public class Node2PC extends Node{
 				String message = Decision.ABORT.toString();
 				broadcast(Protocol.DECISION_PKT, Utility.stringToByteArray(message));
 			}
-		}else{
-			if(waitNode == -1){
+		} else {
+			if (waitNode == -1) {
 				// The coordinator failed
 				if(currentState == State.REQWAIT){
 					// We are still waiting for the vote request, so we never
 					// voted and can abort.
 					finish(Decision.ABORT, true);
-				}else if(currentState == State.DECISIONWAIT){
+				} else if(currentState == State.DECISIONWAIT){
 					// If we are in this state, then we voted yes, but never got
 					// back a decision. We have to ask for help using a
 					// termination protocol.
@@ -407,6 +407,7 @@ public class Node2PC extends Node{
 	 */
 	public void terminationProtocol() {
 		String message = "";
+		currentState = State.DECISIONWAIT;
 		broadcast(Protocol.DECISIONREQ_PKT, Utility.stringToByteArray(message));
 		add2PCTimeout(-1);
 	}

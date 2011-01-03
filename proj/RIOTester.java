@@ -120,7 +120,7 @@ public class RIOTester extends RIONode {
 				if (++numFinished == RIONode.NUM_NODES) {
 					// If we are finished with everything then stop and don't
 					// schedule another timeout
-					fail();
+					return;
 				}
 				doAgain = true;
 			}

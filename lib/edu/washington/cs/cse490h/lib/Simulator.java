@@ -147,7 +147,6 @@ public class Simulator extends Manager {
 				System.out.println("\nTime: " + now());
 
 				ArrayList<Event> currentRoundEvents = new ArrayList<Event>();
-				canceledTimeouts = new HashSet<Timeout>();
 
 				boolean advance = false;
 				do {
@@ -179,7 +178,6 @@ public class Simulator extends Manager {
 				System.out.println("\nTime: " + now());
 
 				ArrayList<Event> currentRoundEvents = new ArrayList<Event>();
-				canceledTimeouts = new HashSet<Timeout>();
 
 				Event ev;
 				boolean advance = false;
@@ -522,20 +520,14 @@ public class Simulator extends Manager {
 	 *            The list of the current round's events that we should add to
 	 */
 	private void checkTimeouts(ArrayList<Event> currentRoundEvents) {
-		ArrayList<Timeout> currentTOs = waitingTOs;
-		waitingTOs = new ArrayList<Timeout>();
-
-		Iterator<Timeout> iter = currentTOs.iterator();
+		Iterator<Timeout> iter = waitingTOs.iterator();
 		while (iter.hasNext()) {
 			Timeout to = iter.next();
-		if(now() >= to.fireTime && !canceledTimeouts.contains(to)) {
+			if(now() >= to.fireTime) {
 				iter.remove();
 				currentRoundEvents.add(Event.getTimeout(to));
 			}
 		}
-		
-		waitingTOs.addAll(currentTOs);
-		waitingTOs.removeAll(canceledTimeouts);
 	}
 	
 	/**
@@ -548,6 +540,8 @@ public class Simulator extends Manager {
 	 *            The list of the current round's events that we should add to
 	 */
 	private void executeEvents(ArrayList<Event> currentRoundEvents) {
+		canceledTimeouts = new HashSet<Timeout>();
+
 		if(userControl == FailureLvl.EVERYTHING){
 			boolean doAgain = false;
 			do{
@@ -595,6 +589,8 @@ public class Simulator extends Manager {
 				handleEvent(ev);
 			}
 		}
+		
+		waitingTOs.removeAll(canceledTimeouts);
 	}
 
 	/**
@@ -628,6 +624,10 @@ public class Simulator extends Manager {
 			deliverPkt(ev.p);
 			break;
 		case TIMEOUT:
+			if(canceledTimeouts.contains(ev.to)) {
+				break;
+			}
+			
 			// TODO: make the callback output the full name of the function
 			// relocate the printing code to --
 			// use the existing ev.toSynopticString() !
