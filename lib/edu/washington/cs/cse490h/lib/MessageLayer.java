@@ -14,28 +14,28 @@ import edu.washington.cs.cse490h.lib.Manager.FailureLvl;
  * <pre>
  * 
  * Class with main method that starts up a Manager. Either an Emulator or a Simulator
- * 
+ *
  * Usage: java MessageLayer [options]
- * 
  * General Options:
- *  -h --help=<boolean>                - Print usage message [default false]
- *  -v --version=<boolean>             - Print program version [default false]
+ *  -h --help=<boolean>                               - Print usage message [default false]
+ *  -v --version=<boolean>                            - Print program version [default false]
  *
  * Execution Options:
- *  -s --simulate=<boolean>            - Simulate [default false]
- *  -e --emulate=<boolean>             - Emulate [default false]
- *  -n --nodeClass=<string>            - Node class to use [default ]
- *  --routerHostname=<string>          - Router hostname [default localhost]
- *  --routerPort=<int>                 - Router port [default -1]
- *  -t --timestep=<long>               - Time step, in ms [default 1000]
- *  -r --seed=<long>                   - Random seed
- *  -c --commandFile=<string>          - Command file [default ]
- *  -f --failureLvlInt=<int>           - Failure level, a number between 0 and 4 [default 4]
+ *  -s --simulate=<boolean>                           - Simulate [default false]
+ *  -e --emulate=<boolean>                            - Emulate [default false]
+ *  -n --nodeClass=<string>                           - Node class to use [default ]
+ *  --routerHostname=<string>                         - Router hostname [default localhost]
+ *  --routerPort=<int>                                - Router port [default -1]
+ *  -t --timestep=<long>                              - Time step, in ms [default 1000]
+ *  -r --seed=<long>                                  - Random seed
+ *  -c --commandFile=<string>                         - Command file [default ]
+ *  -f --failureLvlInt=<int>                          - Failure level, a number between 0 and 4 [default 4]
  *
  * Debugging Options:
- *  -l --synopticLogFilename=<string>  - Synoptic log filename [default ]
- *  -o --replayOutputFilename=<string> - Replay output filename [default ]
- *  --replayInputFilename=<string>     - Replay input filename [default ]
+ *  -L --synopticTotallyOrderedLogFilename=<string>   - Synoptic totally ordered log filename [default ]
+ *  -l --synopticPartiallyOrderedLogFilename=<string> - Synoptic partially ordered log filename [default ]
+ *  -o --replayOutputFilename=<string>                - Replay output filename [default ]
+ *  --replayInputFilename=<string>                    - Replay input filename [default ]
  *
  * </pre>   
  */
@@ -123,12 +123,19 @@ public class MessageLayer {
 
 	////////////////////////////////////////////////////
 	/**
-	 * The log filename for synoptic output
+	 * The log filename for totally ordered synoptic output
 	 */
 	@OptionGroup("Debugging Options")
-	@Option(value="-l Synoptic log filename", aliases={"-synoptic-logfile"})
+	@Option(value="-L Synoptic totally ordered log filename", aliases={"-synoptic-totally-ordered-logfile"})
 	// TODO: specify a sane default
-	public static String synopticLogFilename = "";
+	public static String synopticTotalOrderLogFilename = "";
+	
+	/**
+	 * The log filename for partially ordered synoptic output
+	 */
+	@Option(value="-l Synoptic partially ordered log filename", aliases={"-synoptic-partially-ordered-logfile"})
+	// TODO: specify a sane default
+	public static String synopticPartialOrderLogFilename = "";
 	
 	/**
 	 * The log filename for replay output
@@ -198,10 +205,16 @@ public class MessageLayer {
 			return;
 		}
 
-		if (synopticLogFilename.equals("")) {
-			//printWarning("you did not specify a synoptic log file.");	// TODO: re-enable when it's working
+		if (synopticTotalOrderLogFilename.equals("")) {
+			//printWarning("you did not specify a totally ordered synoptic log file.");	// TODO: re-enable when it's working
 		} else {
-			System.out.println("synopticLogFilename = " + synopticLogFilename);
+			System.out.println("synopticTotalLogFilename = " + synopticTotalOrderLogFilename);
+		}
+		
+		if (synopticPartialOrderLogFilename.equals("")) {
+			//printWarning("you did not specify a partially ordered synoptic log file.");	// TODO: re-enable when it's working
+		} else {
+			System.out.println("synopticPartialLogFilename = " + synopticPartialOrderLogFilename);
 		}
 
 		FailureLvl failureLvl = FailureLvl.EVERYTHING;

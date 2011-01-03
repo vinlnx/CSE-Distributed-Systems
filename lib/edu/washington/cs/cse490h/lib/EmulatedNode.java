@@ -20,6 +20,10 @@ public class EmulatedNode implements Runnable{
 	private OutputStream out;
 	private InputStream in;
 	private int addr;
+	
+	// TODO: implement and use 
+	// A node's local vector clock -- one per node.
+	// public VectorTime vtime = null;
 
 	//This is the IP address and port of the node that this EmulatedNode represents
 	private InetAddress ipAddress;
@@ -48,6 +52,8 @@ public class EmulatedNode implements Runnable{
 		this.parent = parent;
 		this.socket = socket;
 		this.addr = addr;
+		// TODO: is there something that indicates max possible nodes in emulated mode?
+		// this.vtime = new VectorTime(255);
 		this.ipAddress = ipAddress;
 		this.port = port;
 

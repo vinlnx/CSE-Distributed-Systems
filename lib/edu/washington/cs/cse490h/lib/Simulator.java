@@ -21,9 +21,14 @@ public class Simulator extends Manager {
 	public static final int MAX_NODES_TO_SIMULATE = Manager.MAX_ADDRESS - 1;
     
 	private HashMap<Integer, Node> nodes;
+
+	// TODO: migrate to using Node.vtime instead of this once you figure out
+	// how to embed vtime in Packet
+	private HashMap<Integer, VectorTime> vtimes;
+	
 	private HashSet<Integer> crashedNodes;
 	
-	// the global logical time ordering which increments by 1 on every
+	// the global logical time ordering which increments by 1 on each
 	// event in the simulated system.
 	private int globalLogicalTime = 0;
 	
@@ -63,6 +68,7 @@ public class Simulator extends Manager {
 		Utility.randNumGen = new Random(this.seed);
 
 		nodes = new HashMap<Integer, Node>();
+		vtimes = new HashMap<Integer, VectorTime>();
 		crashedNodes = new HashSet<Integer>();
 
 		setTime(0);
@@ -131,8 +137,9 @@ public class Simulator extends Manager {
 
 	@Override
 	protected void start() {
-		// start the synoptic logger
-		this.synLogger.start();
+		// start the synoptic loggers
+		this.synTotalOrderLogger.start(MessageLayer.synopticTotalOrderLogFilename);
+		this.synPartialOrderLogger.start(MessageLayer.synopticPartialOrderLogFilename);
 
 		if (cmdInputType == InputType.FILE) {
 			while (!inTransitMsgs.isEmpty() || !sortedEvents.isEmpty()
@@ -236,7 +243,8 @@ public class Simulator extends Manager {
 		}
 		
 		// stop the synoptic logger
-		this.synLogger.stop();
+		this.synTotalOrderLogger.stop();
+		this.synPartialOrderLogger.stop();
 		System.exit(0);
 	}
 
@@ -273,9 +281,10 @@ public class Simulator extends Manager {
 		}
 		nodes.put(node, newNode);
 		
-		logEvent(newNode, "START");
-
 		newNode.init(this, node);
+		vtimes.put(node, new VectorTime(MAX_ADDRESS));
+		logEvent(newNode, "START");
+		
 		try{
 			newNode.start();
 		}catch(NodeCrashException e) {
@@ -616,9 +625,12 @@ public class Simulator extends Manager {
 			parser.printStrArray(ev.msg, System.out);
 			break;
 		case DELIVERY:
-			deliverPkt(ev.p.getDest(), nodes.get(ev.p.getDest()), ev.p.getSrc(), ev.p);
+			deliverPkt(ev.p);
 			break;
 		case TIMEOUT:
+			// TODO: make the callback output the full name of the function
+			// relocate the printing code to --
+			// use the existing ev.toSynopticString() !
 			logEvent(ev.to.node, "TIMEOUT " + ev.to.cb.toString());
 						
 			try{
@@ -702,11 +714,16 @@ public class Simulator extends Manager {
 	 * @param pkt
 	 *            The packet that should be delivered
 	 */
-	private void deliverPkt(int destAddr, Node destNode, int srcAddr, Packet pkt) {
+	private void deliverPkt(Packet pkt) {
+		int destAddr = pkt.getDest();
+		int srcAddr = pkt.getSrc();
 		if(!isNodeValid(destAddr)) {
 			return;
 		}
 
+		Node destNode = nodes.get(destAddr);
+		vtimes.get(destAddr).updateTo(vtimes.get(srcAddr));
+				
 		logEvent(destNode, "RECVD " + pkt.toSynopticString());
 				
 		try{
@@ -731,7 +748,7 @@ public class Simulator extends Manager {
 
 		Node n = nodes.get(nodeAddr);
 
-		logEvent(n, "COMMAND" + msg);
+		logEvent(n, "COMMAND " + msg);
 
 		try {
 			n.onCommand(msg);
@@ -814,7 +831,14 @@ public class Simulator extends Manager {
 	 * @param eventStr the event string description of the event
 	 */
 	private void logEvent(Node node, String eventStr) {
-		this.synLogger.logEvent("" + this.globalLogicalTime, node, eventStr);
+		this.synTotalOrderLogger.logEvent("" + this.globalLogicalTime, node, eventStr);
 		this.globalLogicalTime += 1;
+		
+		// step() comes before logging because on communication, we've updated 
+		// the destination vtime to be at least the source, but it needs to be
+		// strictly greater than the source.
+		VectorTime vtime = vtimes.get(node.addr);
+		vtime.step(node.addr);
+		this.synPartialOrderLogger.logEvent("" + vtime.toString(), node, eventStr);
 	}
 }

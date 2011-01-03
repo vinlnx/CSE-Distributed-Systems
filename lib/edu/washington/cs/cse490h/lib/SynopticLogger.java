@@ -11,20 +11,23 @@ import java.io.IOException;
 public class SynopticLogger {
 	
 	private BufferedWriter writer = null;
+	private String filename = "";
 
 	/**
 	 * Opens the log file and sets up logging state.
 	 */
-	public void start() {
-		if (MessageLayer.synopticLogFilename == "") {
+	public void start(String filename) {
+		if (filename == "") { 
 			return;
 		}
 		
+		this.filename = filename;
+		
 		try {
 			// TODO: fail if the file exists
-			this.writer = new BufferedWriter(new FileWriter(MessageLayer.synopticLogFilename));
+			this.writer = new BufferedWriter(new FileWriter(filename));
 		} catch (IOException e) {
-			System.out.println("Warning: unable to open logfile '" + MessageLayer.synopticLogFilename + "' for writing.");
+			System.out.println("Warning: unable to open logfile '" + this.filename+ "' for writing.");
 			e.printStackTrace();
 			System.out.println("...continuing");
 		}
@@ -42,7 +45,7 @@ public class SynopticLogger {
 		try {
 			this.writer.close();
 		} catch (IOException e) {
-			System.out.println("Warning: unable to close logfile '" + MessageLayer.synopticLogFilename + "'.");
+			System.out.println("Warning: unable to close logfile '" + this.filename + "'.");
 			e.printStackTrace();
 			System.out.println("...continuing");
 		}

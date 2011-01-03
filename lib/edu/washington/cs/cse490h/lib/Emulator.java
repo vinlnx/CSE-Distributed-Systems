@@ -325,7 +325,8 @@ public class Emulator extends Manager {
 			System.out.println("failed");
 		}
 
-		this.synLogger.stop();
+		this.synTotalOrderLogger.stop();
+		this.synPartialOrderLogger.stop();
 		System.exit(0);
 	}
 
@@ -394,8 +395,8 @@ public class Emulator extends Manager {
 			stop();
 		}
 
-		logEvent(node, "START");
 		node.init(this, address);
+		logEvent(node, "START");
 		failed = false;
 
 		try {

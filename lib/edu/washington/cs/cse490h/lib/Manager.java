@@ -30,7 +30,8 @@ public abstract class Manager {
 	protected ArrayList<Packet> inTransitMsgs;
 	protected CommandsParser parser;   // parser for commands file
 	
-	protected SynopticLogger synLogger = new SynopticLogger();
+	protected SynopticLogger synTotalOrderLogger = new SynopticLogger();
+	protected SynopticLogger synPartialOrderLogger = new SynopticLogger();
 	
 	protected FailureLvl userControl;
 	protected enum FailureLvl{

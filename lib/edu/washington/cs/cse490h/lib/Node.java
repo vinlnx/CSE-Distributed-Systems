@@ -39,9 +39,9 @@ public abstract class Node {
 		private static final long serialVersionUID = 1418673528976798283L;
 	}
 	
-	// this node's local vector time
-	// note: ArrayList data structure is not synchronized!
-	private static HashMap<Integer, Integer> localVectorTime = null;
+	// TODO: migrate to this once you figure out how to embedd vtime in Packet 
+	// A node's local vector clock -- one per node.
+	// public VectorTime vtime = null;
 
 	private Manager manager;
 	public int addr;
@@ -60,9 +60,7 @@ public abstract class Node {
 	final void init(Manager manager, int addr){
 		this.manager = manager;
 		this.addr = addr;
-		localVectorTime = new HashMap<Integer, Integer>();
-		// create an empty localVectorTime
-		localVectorTime.put(addr, 0);
+		// this.vtime = new VectorTime(Manager.MAX_ADDRESS);
 	}
 
 	/**

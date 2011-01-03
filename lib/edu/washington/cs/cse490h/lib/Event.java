@@ -94,26 +94,4 @@ public class Event {
 			return "UNKNOWN EVENT TYPE " + t;
 		}
 	}
-	
-	public String toSynopticString() {
-		switch(t) {
-		
-		
-		case EXIT:
-			return "EXIT";
-		case COMMAND:
-			return "COMMAND " + command;
-		case ECHO:
-			return "ECHO " + msg;
-		case TIME:
-			return "TIME " + msg;
-		case DELIVERY:
-			return "DELIVERY " + p.toSynopticString();
-		case TIMEOUT:
-			return "TIMEOUT " + to;
-		default:
-			return "UNKNOWN EVENT TYPE " + t;
-		}
-	}
-	
 }

@@ -4,6 +4,10 @@
 # ignore temporary emacs files
 *~
 
+# log and replay files
+*.log
+*.replay
+
 # ignore the persistent storage of nodes
 storage/
 
