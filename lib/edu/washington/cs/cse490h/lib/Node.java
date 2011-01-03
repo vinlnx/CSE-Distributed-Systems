@@ -72,7 +72,7 @@ public abstract class Node {
 
 	/**
 	 * Stop the node and don't return. Please make sure to call this at the end
-	 * of any overriding stop.
+	 * of any overriding fail.
 	 * 
 	 * Overriding this method should only be used for logging purposes, since
 	 * you are not guaranteed that it will be called for each crash (especially

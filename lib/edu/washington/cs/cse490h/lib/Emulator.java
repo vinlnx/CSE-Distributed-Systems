@@ -16,6 +16,7 @@ import edu.washington.cs.cse490h.lib.Packet.CorruptPacketException;
 /**
  * Manager that runs under a single emulated node on the client machine.
  */
+//FIXME: persistent storage and dynamic addresses
 public class Emulator extends Manager {
 	private Node node;
 	private NodeServer server;
@@ -232,10 +233,7 @@ public class Emulator extends Manager {
 					}
 					
 					//FIXME: automatic recoveries = no user input at the time
-					/*if(node != null) {
-						continue;
-					}
-
+					/*
 					do{
 						// just in case an exception is thrown or input is null
 						Event ev = null;
@@ -630,7 +628,7 @@ public class Emulator extends Manager {
 		}
 
 		for (Packet p : currentPackets) {
-			currentRoundEvents.add(new Event(p));
+			currentRoundEvents.add(Event.getDelivery(p));
 		}
 	}
 
@@ -646,14 +644,14 @@ public class Emulator extends Manager {
 		if (userControl.compareTo(FailureLvl.CRASH) < 0){
 			double rand = Utility.getRNG().nextDouble();
 			if(rand < failureRate){
-				currentRoundEvents.add(new Event(address, Event.EventType.FAILURE));
+				currentRoundEvents.add(Event.getFailure(address));
 			}
 		} else {
 			try {
 				System.out.println("Crash? (y/n)");
 				String input = Replay.getLine().trim();
 				if (input.charAt(0) == 'y') {
-					currentRoundEvents.add(new Event(address, Event.EventType.FAILURE));
+					currentRoundEvents.add(Event.getFailure(address));
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -703,7 +701,7 @@ public class Emulator extends Manager {
 			Timeout to = iter.next();
 			if(now() >= to.fireTime) {
 				iter.remove();
-				currentRoundEvents.add(new Event(to));
+				currentRoundEvents.add(Event.getTimeout(to));
 			}
 		}
 		

@@ -18,7 +18,6 @@ import edu.washington.cs.cse490h.lib.Packet.CorruptPacketException;
  * information about a previous execution. In the emulator environment
  * particularly, the execution may not be valid if the implementation changes.
  */
-// TODO: think about global replay?
 public class Replay {
 	static class ReplayException extends RuntimeException {
 		private static final long serialVersionUID = -3490291954459395688L;

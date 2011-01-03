@@ -35,11 +35,10 @@ public class Node2PC extends Node{
 	public static double getRecoveryRate(){ return 5/100.0; }
 	public static double getDropRate(){ return 5/100.0; }
 	public static double getDelayRate(){ return 10/100.0; }
-	
-	//TODO: should we do something smarter for NUM_NODES?
+
 	public static int NUM_NODES = 3;
 	public static int TIMEOUT = 4;
-	
+
 	// 2PC state
 	private boolean coordinator;
 	private Decision vote;
@@ -47,13 +46,13 @@ public class Node2PC extends Node{
 	private int votesReceived;
 	private State currentState;
 	private HashMap<Integer, Decision> votes;
-	
+
 	// persistent storage
 	PersistentStorageWriter log;
-	
+
 	enum State { REQWAIT, VOTEWAIT, DECISIONWAIT, FINISHED };
 	enum Decision { COMMIT, ABORT, UNDECIDED };
-	
+
 	/**
 	 * Create a new node and initialize everything
 	 */
@@ -63,7 +62,7 @@ public class Node2PC extends Node{
 		}else{
 			vote = Decision.ABORT;
 		}
-		//vote = rand.nextBoolean() ? Decision.COMMIT : Decision.ABORT;
+
 		decide = Decision.UNDECIDED;
 		coordinator = false;
 		votesReceived = 0;
@@ -90,7 +89,6 @@ public class Node2PC extends Node{
 			e.printStackTrace();
 			fail();
 		}
-
 	}
 
 	/**

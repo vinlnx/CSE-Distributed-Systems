@@ -2,8 +2,11 @@ package edu.washington.cs.cse490h.lib;
 
 import edu.washington.cs.cse490h.lib.Manager.Timeout;
 
+/**
+ * Class that represents the various types of events within the managers
+ */
 public class Event {
-	protected final int node;
+	protected int node;
 	protected final EventType t;
 
 	public static enum EventType {
@@ -16,39 +19,57 @@ public class Event {
 	protected Packet p;
 	protected Timeout to;
 
-	// TODO: clean this class up!
-	// FAILURE, START, EXIT
-	public Event(int node, EventType t) {
-		this.node = node;
+	private Event(EventType t) {
 		this.t = t;
 	}
 
-	// COMMAND
-	public Event(int node, String command) {
-		this.node = node;
-		t = EventType.COMMAND;
-		this.command = command;
+	protected static Event getFailure(int node) {
+		Event e = new Event(EventType.FAILURE);
+		e.node = node;
+		return e;
 	}
 
-	// ECHO, TIME
-	public Event(EventType t, String[] msg) {
-		node = -1;
-		this.t = t;
-		this.msg = msg;
+	protected static Event getStart(int node) {
+		Event e = new Event(EventType.START);
+		e.node = node;
+		return e;
 	}
 
-	// DELIVERY
-	public Event(Packet p) {
-		this.p = p;
-		t = EventType.DELIVERY;
-		node = p.getDest();
+	protected static Event getExit() {
+		Event e = new Event(EventType.EXIT);
+		return e;
 	}
 
-	// TIMEOUT
-	public Event(Timeout to) {
-		this.to = to;
-		t = EventType.TIMEOUT;
-		node = to.node.addr;
+	protected static Event getCommand(int node, String command) {
+		Event e = new Event(EventType.COMMAND);
+		e.node = node;
+		e.command = command;
+		return e;
+	}
+
+	protected static Event getEcho(String[] msg) {
+		Event e = new Event(EventType.ECHO);
+		e.msg = msg;
+		return e;
+	}
+
+	protected static Event getTime() {
+		Event e = new Event(EventType.TIME);
+		return e;
+	}
+
+	protected static Event getDelivery(Packet p) {
+		Event e = new Event(EventType.DELIVERY);
+		e.node = p.getDest();
+		e.p = p;
+		return e;
+	}
+
+	protected static Event getTimeout(Timeout to) {
+		Event e = new Event(EventType.TIMEOUT);
+		e.node = to.node.addr;
+		e.to = to;
+		return e;
 	}
 
 	public String toString() {

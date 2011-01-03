@@ -26,11 +26,11 @@ import plume.Options;
  * Usage: java Router [options]
  * 
  * General Options:
- *   -h --help=<boolean>     - Print usage message [default false]
- *   -v --version=<boolean>  - Print program version [default false]
+ *   -h --help=<boolean>    - Print usage message [default false]
+ *   -v --version=<boolean> - Print program version [default false]
  * 
  * Execution Options:
- *   -p --localUDPPort=<int> - Local UDP port [default -1]
+ *   -p --localPort=<int>   - Local UDP port [default -1]
  *   
  * </pre>
  */
@@ -39,28 +39,25 @@ public class Router {
 	private ServerSocket socket;
 	// emulatedNodes is also used as a lock
 	protected Map<Integer, NodeContainer> emulatedNodes;
-	
+
+	/**
+	 * Construct a new Router
+	 * 
+	 * @param port
+	 *            The port to listen on. This must be a valid port (>1024)
+	 * @throws IOException
+	 *             If there is an error creating the socket server
+	 */
 	private Router(int port) throws IOException {
 		socket = new ServerSocket(port);
 		emulatedNodes = Collections.synchronizedMap( new HashMap<Integer, NodeContainer>() ) ;
 	}
-	
+
 	/**
-	 * <pre>          
-	 * Wait for a node to connect, then:
-	 *	find out if any nodes have left while we were waiting
-	 *		(and if so, update their neighbors so they stop sending them packets)
-	 *	find a free fishnet Address to assign to the new node, and send it to them
-	 *		(by writing to the node's TCP socket)
-	 *	find out which UDP port they are listening to
-	 *		(by reading from the node's TCP socket)
-	 *	tell the node about all its neighbors' IP addresses and port #'s
-	 *	tell all their neighbors with their IP address and port #
-	 *	loop
-	 * </pre>
-	 * @throws Exception Any other exception that might occur while the Router is running
+	 * Start up the Router. It sits and listens for new connections, and spawns
+	 * a new thread for each one.
 	 */
-	protected void start() throws IOException{
+	protected void start() {
 		System.out.println("Router awaiting nodes...");
 		
 		while(true) {
@@ -102,10 +99,7 @@ public class Router {
 					}
 				}
 			}catch(IOException e) {
-				System.err.println("IOException occured while trying to create new node. Exception: " + e);
-			}catch(Exception e) {
-				System.err.println("Exception occured while trying to create new node. Exception Stack Trace: ");
-				e.printStackTrace();		
+				e.printStackTrace();
 			}
 		}	    
 	}
@@ -118,10 +112,27 @@ public class Router {
 		System.exit(0);
 	}
 
+	/**
+	 * Called by an emulated node to signal that it is quitting
+	 * 
+	 * @param address
+	 *            The virtual address of the node that is quitting
+	 * @param queue
+	 *            The queue of in-transit packets gotten from the termination
+	 *            protocol.  Can be empty.
+	 */
 	protected void nodeQuit(int address, LinkedList<Packet> queue) {
 		emulatedNodes.get(address).quit(queue);
 	}
 
+	/**
+	 * Called by the start thread to create a new emulated node
+	 * 
+	 * @param address
+	 *            The virtual address of the new node
+	 * @param newNode
+	 *            The new emulated node object
+	 */
 	private void nodeJoin(int address, EmulatedNode newNode) {
 		if (emulatedNodes.containsKey(address)) {
 			emulatedNodes.get(address).restart(newNode);
@@ -130,10 +141,16 @@ public class Router {
 		}
 	}
 
-	// returns -1 if no more addresses are available
-	// Even without locking, this guarantees the address is free since joins are
-	// only handled in this thread. The returned address is not guaranteed to be
-	// the lowest free address however
+	/**
+	 * Gets the next available address.
+	 * 
+	 * Even without locking, this guarantees the address is free since joins are
+	 * only handled in this thread. The returned address is not guaranteed to be
+	 * the lowest free address however
+	 * 
+	 * @return The next available address, or -1 if there are no more free
+	 *         addresses
+	 */
 	private int freeAddr() {
 		for (int i = 0; i < Manager.BROADCAST_ADDRESS; i++) {
 			if (!emulatedNodes.containsKey(i) || !emulatedNodes.get(i).isUp()) {
@@ -143,6 +160,16 @@ public class Router {
 		return -1;
 	}
 
+	/**
+	 * Check if there is already a node using a specific IP and port.
+	 * 
+	 * @param ipAddress
+	 *            The IP address of the machine on which the node is running
+	 * @param port
+	 *            The port that the node is using
+	 * @return A node container that is using the same IP/port, or null if it
+	 *         does not exist
+	 */
 	private NodeContainer portConflict(InetAddress ipAddress, int port) {
 		synchronized(emulatedNodes) {
 			for (NodeContainer node : emulatedNodes.values()) {
@@ -180,9 +207,9 @@ public class Router {
 	 * Local port
 	 */
 	@OptionGroup("Execution Options")
-	@Option(value="-p Local UDP port", aliases={"-local-port"})
+	@Option(value="-p Local port", aliases={"-local-port"})
 	// TODO: specify a sane default
-	public static int localUDPPort = -1;
+	public static int localPort = -1;
 	// end option group "Execution Options"
 
 
@@ -190,11 +217,11 @@ public class Router {
 	private static String usage_string
 	= "java Router [options]";
 
-
 	/**
 	 * Prints out an warning message
 	 * 
-	 * @param msg warning msg string
+	 * @param msg
+	 *            warning msg string
 	 */
 	public static void printWarning(String msg) {
 		System.err.println("Warning: " + msg);
@@ -203,7 +230,8 @@ public class Router {
 	/**
 	 * Prints out an error message
 	 * 
-	 * @param msg error msg string
+	 * @param msg
+	 *            error msg string
 	 */
 	public static void printError(String msg) {
 		System.err.println("Error: " + msg);
@@ -229,13 +257,13 @@ public class Router {
 			return;
 		}
 
-		if (localUDPPort == -1) {
+		if (localPort == -1) {
 			System.out.println("you must specify a port with -p.");
 			return;
 		}
 		
 		try {
-			router = new Router(localUDPPort);
+			router = new Router(localPort);
 			router.start();
 		}catch(IOException e) {
 			System.err.println("Invalid port given to Router. Exception: " + e);	
@@ -245,6 +273,10 @@ public class Router {
 	}
 }
 
+/**
+ * A container that represents an address. It either wraps an emulated node, or
+ * a queue of messages to a failed node.
+ */
 class NodeContainer {
 	private boolean up;
 	private EmulatedNode node;

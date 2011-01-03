@@ -10,7 +10,6 @@ sub main {
     
     $args = join " ", @ARGV;
 
-    system("rm -rf storage");
     exec("java -cp $classpath edu.washington.cs.cse490h.lib.MessageLayer $args");
 }
 

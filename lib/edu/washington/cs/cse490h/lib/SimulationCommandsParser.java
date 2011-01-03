@@ -1,10 +1,7 @@
 package edu.washington.cs.cse490h.lib;
 
 /**
- * <pre>   
- * Parser for the Simulator
- * Simulator is interested in all commands
- * </pre>   
+ * Parser for the Simulator commands.
  */
 public class SimulationCommandsParser extends CommandsParser {
 	protected Event parseNodeCmd(String[] cmd) {
@@ -20,6 +17,6 @@ public class SimulationCommandsParser extends CommandsParser {
 			msg.append(" " + cmd[i]);
 		}
 
-		return new Event(nodeAddr, msg.toString());
+		return Event.getCommand(nodeAddr, msg.toString());
 	}
 }

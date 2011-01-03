@@ -15,16 +15,17 @@ public class EmulationCommandsParser extends CommandsParser {
 		String[] cmd = line.split("\\s+");
 
 		if (cmd[0].equals("fail")) {
-			return new Event(-1, Event.EventType.FAILURE);
+			return Event.getFailure(-1);
 		}
 
 		if (cmd[0].equals("start")) {
-			return new Event(-1, Event.EventType.START);
+			return Event.getStart(-1);
 		}
 
 		return parseCommonCmds(cmd);
 	}
 
+	@Override
 	protected Event parseNodeCmd(String[] cmd) {
 		if (cmd.length < 1) {
 			// Should've been caught earlier
@@ -38,6 +39,6 @@ public class EmulationCommandsParser extends CommandsParser {
 		}
 		
 		// Node addr does not matter for emulator
-		return new Event(-1, msg.toString());
+		return Event.getCommand(-1, msg.toString());
 	}
 }

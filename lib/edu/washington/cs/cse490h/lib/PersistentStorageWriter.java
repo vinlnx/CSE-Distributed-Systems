@@ -8,15 +8,15 @@ import java.io.Writer;
 
 /**
  * Class that nodes use to write to persistent storage. This class can be used
- * exactly the same way as a BufferedWriter.
+ * exactly the same way as a BufferedWriter, and students should use only this
+ * and the PersistentStorageReader to access disc
  * 
  * The key difference is that any action that modifies a file can potentially
  * crash before the modification is made. This is to model cases where the node
  * fails between calls to onReceive.
  * 
  * Note that ANY modification can cause a crash with equal probability, so
- * write('a'); write('b'); write('c'); newLine();
- * has a higher chance of causing
+ * write('a'); write('b'); write('c'); newLine(); has a higher chance of causing
  * a crash than write("abc\n");
  * 
  */
@@ -101,14 +101,15 @@ public class PersistentStorageWriter extends BufferedWriter {
 		
 		return ret;
 	}
-	
+
+	@Override
 	public void write(String str) throws IOException{
 		n.checkWriteCrash("write(str)");
 		
 		super.write(str);
 		super.flush();
 	}
-	
+
 	public boolean delete() throws IOException{
 		n.checkWriteCrash("delete of" + f.getName());
 		

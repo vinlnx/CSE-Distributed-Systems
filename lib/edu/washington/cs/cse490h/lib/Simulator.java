@@ -442,7 +442,7 @@ public class Simulator extends Manager {
 		}
 		
 		for(Packet p: currentPackets) {
-			currentRoundEvents.add(new Event(p));
+			currentRoundEvents.add(Event.getDelivery(p));
 		}
 	}
 
@@ -461,7 +461,7 @@ public class Simulator extends Manager {
 			for (Integer i : addrCopy) {
 				double rand = Utility.getRNG().nextDouble();
 				if (rand < failureRate) {
-					currentRoundEvents.add(new Event(i, Event.EventType.FAILURE));
+					currentRoundEvents.add(Event.getFailure(i));
 				}
 			}
 
@@ -469,7 +469,7 @@ public class Simulator extends Manager {
 			for (Integer i : addrCopy) {
 				double rand = Utility.getRNG().nextDouble();
 				if (rand < recoveryRate) {
-					currentRoundEvents.add(new Event(i, Event.EventType.START));
+					currentRoundEvents.add(Event.getStart(i));
 				}
 			}
 		} else {
@@ -483,7 +483,7 @@ public class Simulator extends Manager {
 					if(!input.equals("")){
 						String[] crashList = input.split("\\s+");
 						for(String s: crashList){
-							currentRoundEvents.add(new Event(Integer.parseInt(s), Event.EventType.FAILURE));
+							currentRoundEvents.add(Event.getFailure(Integer.parseInt(s)));
 						}
 					}
 				}
@@ -495,7 +495,7 @@ public class Simulator extends Manager {
 					if(!input.equals("")){
 						String[] restartList = input.split("\\s+");
 						for(String s: restartList){
-							currentRoundEvents.add(new Event(Integer.parseInt(s), Event.EventType.START));
+							currentRoundEvents.add(Event.getStart(Integer.parseInt(s)));
 						}
 					}
 				}
@@ -521,7 +521,7 @@ public class Simulator extends Manager {
 			Timeout to = iter.next();
 		if(now() >= to.fireTime && !canceledTimeouts.contains(to)) {
 				iter.remove();
-				currentRoundEvents.add(new Event(to));
+				currentRoundEvents.add(Event.getTimeout(to));
 			}
 		}
 		

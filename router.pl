@@ -11,6 +11,5 @@ sub main {
     $args = join " ", @ARGV;
 
     exec("java -cp $classpath edu.washington.cs.cse490h.lib.Router $args");
-    # exec("nice java -cp $classpath Fishnet $fishnetArgs");
 }
 

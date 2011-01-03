@@ -91,19 +91,28 @@ public class Packet {
 	 * 
 	 * @param node
 	 *            The address of the node that is leaving the network
+	 * @return The FIN packet
 	 */
 	protected static Packet getFinPacket(int node) {
 		return new Packet(node, node, 0, FIN, new byte[0]);
 	}
-	
+
+	/**
+	 * Constructs a new replay packet that is meant to represent non packet
+	 * external input for replays
+	 * 
+	 * @param addr
+	 *            The address value
+	 * @param protocol
+	 *            The replay protocol (see Replay class)
+	 * @param payload
+	 *            The payload of the packet
+	 * @return The REPLAY packet
+	 */
 	protected static Packet getReplayPacket(int addr, int protocol, byte[] payload) {
 		return new Packet(addr, addr, protocol, REPLAY, payload);
 	}
 
-	/**
-	 * Provides a string representation of the packet.
-	 * @return A string representation of the packet.
-	 */
 	@Override
 	public String toString() {
 		if((flags & FIN) != 0) {
@@ -114,14 +123,14 @@ public class Packet {
 	}
 
 	/**
-	 * @return The address of the destination node
+	 * @return The virtual address of the destination node
 	 */
 	protected int getDest() {
 		return dest;
 	}
 
 	/**
-	 * @return The address of the src node
+	 * @return The virtual address of the src node
 	 */
 	protected int getSrc() {
 		return src;
@@ -185,33 +194,45 @@ public class Packet {
 	 * 
 	 * @param packedPacket
 	 *            String representation of the packet
-	 * @return Packet Object created or null if the byte[] representation was
-	 *         corrupted
-	 * @throws CorruptPacketException 
+	 * @return Packet Object created or null if the byte[] is empty
+	 * @throws CorruptPacketException
+	 *             If the byte[] representation was corrupted
 	 */
 	protected static Packet unpack(byte[] packedPacket) throws CorruptPacketException{
 		return unpack( new DataInputStream(new ByteArrayInputStream(packedPacket)) );
 	}
-	
+
 	/**
 	 * Reads an input stream to create a Packet object. Assumes the array has
 	 * been formatted using pack method in Packet
 	 * 
 	 * @param stream
 	 *            Input stream (probably from a socket)
-	 * @return Packet object created or null if the byte[] representation was
-	 *         corrupted
-	 * @throws CorruptPacketException 
+	 * @return Packet object created or null if the stream is at EOF
+	 * @throws CorruptPacketException
+	 *             If the stream contains a corrupted packet
 	 */
 	protected static Packet unpack(InputStream stream) throws CorruptPacketException {
 		return unpack( new DataInputStream(stream) );
 	}
-	
+
+	/**
+	 * General method to read a data stream to create a Packet object. Assumes
+	 * the array has been formatted using pack method in Packet. Called by the
+	 * other unpack methods.
+	 * 
+	 * @param in
+	 *            The data stream
+	 * @return Packet object created or null if the input stream is at EOF
+	 * @throws CorruptPacketException
+	 *             If the stream contains a corrupted packet
+	 */
 	private static Packet unpack(DataInputStream in) throws CorruptPacketException {
 		try {
 			// If the end of stream is reached normally, this will be -1
 			int dest = in.read();
 			if(dest == -1) {
+				// return null if we were at EOF
 				return null;
 			}
 			int src = in.read();
@@ -228,10 +249,12 @@ public class Packet {
 		}
 		throw new CorruptPacketException();
 	}
-	
+
 	/**
 	 * Tests if the address is a valid one
-	 * @param addr Address to check
+	 * 
+	 * @param addr
+	 *            Address to check
 	 * @return True is address is valid, else false
 	 */
 	protected static boolean validAddress(int addr) {
@@ -240,12 +263,24 @@ public class Packet {
 
 	/**
 	 * Tests if this Packet is valid or not
+	 * 
 	 * @return True if packet is valid, else false
 	 */
 	protected boolean isValid() {
 		return isValid(dest, src, payload.length + HEADER_SIZE);
 	}
 
+	/**
+	 * Tests if a Packet is valid or not
+	 * 
+	 * @param dest
+	 *            The destination of the packet
+	 * @param src
+	 *            The source of the packet
+	 * @param size
+	 *            The total size of the packet
+	 * @return True if the packet is valid, false otherwise
+	 */
 	private static boolean isValid(int dest, int src, int size) {
 		return (dest <= Manager.MAX_ADDRESS && dest >= 0   &&
 				Packet.validAddress(src)           &&

@@ -2,8 +2,6 @@ package edu.washington.cs.cse490h.lib;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.net.UnknownHostException;
 
 import plume.Option;
@@ -20,22 +18,24 @@ import edu.washington.cs.cse490h.lib.Manager.FailureLvl;
  * Usage: java MessageLayer [options]
  * 
  * General Options:
- *  -h --help=<boolean>               - Print usage message [default false]
- *  -v --version=<boolean>            - Print program version [default false]
+ *  -h --help=<boolean>                - Print usage message [default false]
+ *  -v --version=<boolean>             - Print program version [default false]
  *
  * Execution Options:
- *  -s --simulate=<boolean>           - Simulate [default false]
- *  -e --emulate=<boolean>            - Emulate [default false]
- *  -n --nodeClass=<string>           - Node class to use [default ]
- *  --routerHostname=<string>         - Router hostname [default localhost]
- *  --routerPort=<int>                - Router port [default -1]
- *  -t --timestep=<long>              - Time step, in ms [default 1000]
- *  -r --seed=<long>                  - Random seed
- *  -c --commandFile=<string>         - Command file [default ]
- *  -f --failureLvlInt=<int>          - Failure level, a number between 0 and 4 [default 4]
+ *  -s --simulate=<boolean>            - Simulate [default false]
+ *  -e --emulate=<boolean>             - Emulate [default false]
+ *  -n --nodeClass=<string>            - Node class to use [default ]
+ *  --routerHostname=<string>          - Router hostname [default localhost]
+ *  --routerPort=<int>                 - Router port [default -1]
+ *  -t --timestep=<long>               - Time step, in ms [default 1000]
+ *  -r --seed=<long>                   - Random seed
+ *  -c --commandFile=<string>          - Command file [default ]
+ *  -f --failureLvlInt=<int>           - Failure level, a number between 0 and 4 [default 4]
  *
- * Synoptic Options:
- *  -l --synopticLogFilename=<string> - Synoptic log filename [default ]
+ * Debugging Options:
+ *  -l --synopticLogFilename=<string>  - Synoptic log filename [default ]
+ *  -o --replayOutputFilename=<string> - Replay output filename [default ]
+ *  --replayInputFilename=<string>     - Replay input filename [default ]
  *
  * </pre>   
  */
@@ -125,7 +125,7 @@ public class MessageLayer {
 	/**
 	 * The log filename for synoptic output
 	 */
-	@OptionGroup("Synoptic Options")
+	@OptionGroup("Debugging Options")
 	@Option(value="-l Synoptic log filename", aliases={"-synoptic-logfile"})
 	// TODO: specify a sane default
 	public static String synopticLogFilename = "";
@@ -134,7 +134,6 @@ public class MessageLayer {
 	 * The log filename for replay output
 	 */
 	@Option(value="-o Replay output filename", aliases={"-replay-outfile"})
-	// TODO: specify a sane default
 	public static String replayOutputFilename = "";
 	
 	/**
@@ -142,7 +141,7 @@ public class MessageLayer {
 	 */
 	@Option(value="Replay input filename", aliases={"-replay-infile"})
 	public static String replayInputFilename = "";
-	// end option group "Synoptic Options"
+	// end option group "Debugging Options"
 
 
 	/** One line synopsis of usage */
@@ -200,7 +199,7 @@ public class MessageLayer {
 		}
 
 		if (synopticLogFilename.equals("")) {
-			printWarning("you did not specify a synoptic log file.");
+			//printWarning("you did not specify a synoptic log file.");	// TODO: re-enable when it's working
 		} else {
 			System.out.println("synopticLogFilename = " + synopticLogFilename);
 		}
@@ -222,8 +221,7 @@ public class MessageLayer {
 		try {
 			Manager manager = null;
 
-			URLClassLoader nodeLoader = new URLClassLoader(new URL[] {ClassLoader.getSystemResource("proj/")}); //FIXME: is this really looking in the right place? It seems to work
-			Class<? extends Node> nodeImpl = nodeLoader.loadClass(nodeClass).asSubclass(Node.class);
+			Class<? extends Node> nodeImpl = ClassLoader.getSystemClassLoader().loadClass(nodeClass).asSubclass(Node.class);
 
 			if (simulate) {
 				if(commandFile.equals("")) {

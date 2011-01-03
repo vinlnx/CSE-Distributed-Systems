@@ -117,7 +117,7 @@ public abstract class CommandsParser {
 	 * Command to exit the manager.
 	 */
 	protected Event exit(String[] cmd) {
-		return new Event(-1, Event.EventType.EXIT);
+		return Event.getExit();
 	}
 
 	/**
@@ -189,26 +189,24 @@ public abstract class CommandsParser {
 
 	private Event parseFail(String[] cmd) {
 		if(cmd[0].equals("fail")) {
-			return new Event(Integer.parseInt(cmd[1]), Event.EventType.FAILURE);
+			return Event.getFailure(Integer.parseInt(cmd[1]));
 		}
 		return null;
 	}
 
 	private Event parseStart(String[] cmd) {
 		if(cmd[0].equals("start")) {
-			return new Event(Integer.parseInt(cmd[1]), Event.EventType.START);
+			return Event.getStart(Integer.parseInt(cmd[1]));
 		}
 		return null;
 	}
 
 	private Event time(String[] cmd) {
-		return new Event(Event.EventType.TIME, cmd);
+		return Event.getTime();
 	}
-	
-	// Echo string if cmd is echo
-	// Return value indicates whether command was echo or not
+
 	private Event echo(String[] cmd) {
 		//printStrArray(cmd, 1, cmd.length, System.out);
-		return new Event(Event.EventType.ECHO, cmd);
+		return Event.getEcho(cmd);
 	}
 }

@@ -5,9 +5,7 @@ import java.io.UnsupportedEncodingException;
 import java.util.Random;
 
 /**
- * <pre>   
- * Provides some useful static methods
- * </pre>   
+ * Provides some useful static methods.
  */
 public class Utility {
 
