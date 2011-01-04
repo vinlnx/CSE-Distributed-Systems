@@ -56,7 +56,6 @@ public abstract class Manager {
 			this.node = node;
 			this.fireTime = fireTime;
 			this.cb = cb;
-			
 		}
 		
 		public String toString() {

@@ -628,10 +628,7 @@ public class Simulator extends Manager {
 				break;
 			}
 			
-			// TODO: make the callback output the full name of the function
-			// relocate the printing code to --
-			// use the existing ev.toSynopticString() !
-			logEvent(ev.to.node, "TIMEOUT " + ev.to.cb.toString());
+			logEvent(ev.to.node, "TIMEOUT at:" + ev.to.fireTime + " target:" + ev.to.cb.toSynopticString());
 						
 			try{
 				ev.to.cb.invoke();
