@@ -125,10 +125,10 @@ public abstract class Manager {
 
 		if(!replayInputFilename.equals("")) {
 			// initialize the replay input file and grab the old seed
-			this.seed = Replay.init(new DataInputStream(new FileInputStream(replayInputFilename)));
+			this.seed = Replay.init(new DataInputStream(new FileInputStream(replayInputFilename)), true);
 		} else {
 			// make a new seed and initialize keyboard input
-			Replay.init(null);
+			Replay.init(null, false);
 			if (seed == null) {
 				this.seed = System.currentTimeMillis();
 			} else {

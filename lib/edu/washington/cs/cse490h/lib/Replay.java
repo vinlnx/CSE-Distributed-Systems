@@ -31,6 +31,7 @@ public class Replay {
 	private static DataInputStream replayIn;
 	protected static DataOutputStream replayOut;
 	private static BufferedReader keyboard;
+	private static boolean controlInput;	//TODO: enable replay without user input
 
 	// protocol values for replay packets
 	protected static final int NULL = 0;
@@ -48,8 +49,9 @@ public class Replay {
 	 * @throws IOException
 	 *             If there is a problem with the keyboard BufferedReader
 	 */
-	protected static long init(DataInputStream in) throws IOException {
+	protected static long init(DataInputStream in, boolean controlInput) throws IOException {
 		replayIn = in;
+		Replay.controlInput = controlInput;
 
 		if (in != null) {
 			return Replay.replayIn.readLong();
@@ -145,11 +147,15 @@ public class Replay {
 	 *             If there is an error in the read packet
 	 */
 	protected static Packet getPacket() throws CorruptPacketException {
-		Packet pkt = Packet.unpack(replayIn);
-		if (pkt == null) {
-			System.out.println("Reached end of deterministic replay.  Stopping...");
-			parent.stop();
-		}
+		Packet pkt;
+		
+		do {
+			pkt = Packet.unpack(replayIn);
+			if (pkt == null) {
+				System.out.println("Reached end of deterministic replay.  Stopping...");
+				parent.stop();
+			}
+		} while (!controlInput && isUserPacket(pkt));
 		
 		//System.out.println("DEBUG: got packet: " + pkt);
 		
@@ -167,7 +173,7 @@ public class Replay {
 	protected static String getLine() throws IOException{
 		String input;
 
-		if (replayIn != null) {
+		if (replayIn != null && controlInput) {
 			// get a packet from the replay input file
 			Packet line;
 			try {

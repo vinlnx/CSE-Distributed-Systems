@@ -23,7 +23,7 @@ import java.util.ArrayList;
  *	[// | #] <comment>  -- any line starting with // or # is ignored
  *	time -- any subsequent command is delayed until the next time step
  *	fail [n] -- this crashes a node n
- *	restart [n]  -- this restarts a node.
+ *	start [n]  -- this restarts a node.
  *	echo text -- print the text 
  *	exit  -- cleanly stop the simulation/emulation run and print statistics
  *	[n] <msg>  -- deliver command <msg> to node n

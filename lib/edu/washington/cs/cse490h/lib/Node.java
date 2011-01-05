@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.HashMap;
 
 import edu.washington.cs.cse490h.lib.Manager;
 
@@ -45,6 +44,13 @@ public abstract class Node {
 
 	private Manager manager;
 	public int addr;
+	
+	// TODO: timeout, deliver caused by to, timeout
+	// There are two ways to handle this corner case:
+	// 1. be able to deliver messages in the same round that they are sent
+	// 2. include a drift event, which pushes back all subsequent time-based
+	//    events (timers and commands)
+	protected long drift;
 
 	/**
 	 * Called by the manager to initialize certain variables. Students should
@@ -60,6 +66,7 @@ public abstract class Node {
 	final void init(Manager manager, int addr){
 		this.manager = manager;
 		this.addr = addr;
+		this.drift = 0;
 		// this.vtime = new VectorTime(Manager.MAX_ADDRESS);
 	}
 

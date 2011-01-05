@@ -52,8 +52,7 @@ public class EmulatedNode implements Runnable{
 		this.parent = parent;
 		this.socket = socket;
 		this.addr = addr;
-		// TODO: is there something that indicates max possible nodes in emulated mode?
-		// this.vtime = new VectorTime(255);
+		// this.vtime = new VectorTime(Manager.MAX_ADDRESS);
 		this.ipAddress = ipAddress;
 		this.port = port;
 
