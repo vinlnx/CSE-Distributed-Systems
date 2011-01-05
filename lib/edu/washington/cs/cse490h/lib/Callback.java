@@ -113,4 +113,8 @@ public class Callback {
 	public String toString() {
 		return method.getName() + "(" + params + ")";
 	}
+	
+	public String toSynopticString() {
+		return method.getName();
+	}
 }
