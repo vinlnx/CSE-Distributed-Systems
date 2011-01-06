@@ -628,7 +628,7 @@ public class Simulator extends Manager {
 				break;
 			}
 			
-			logEvent(ev.to.node, "TIMEOUT at:" + ev.to.fireTime + " target:" + ev.to.cb.toSynopticString());
+			logEvent(ev.to.node, "TIMEOUT at:" + ev.to.fireTime + " tout." + ev.to.cb.toSynopticString());
 						
 			try{
 				ev.to.cb.invoke();
@@ -683,18 +683,18 @@ public class Simulator extends Manager {
 			for(Integer i: nodes.keySet()) {
 				if(i != from){
 					Packet newPacket = new Packet(i, from, protocol, payload);
-					logEvent(fromNode, "SEND " + newPacket.toSynopticString());
+					logEvent(fromNode, "SEND " + newPacket.toSynopticString("tx"));
 					inTransitMsgs.add(newPacket);
 				}
 			}
 			for(Integer i: crashedNodes) {
 				Packet newPacket = new Packet(i, from, protocol, payload);
-				logEvent(fromNode, "SEND " + newPacket.toSynopticString());
+				logEvent(fromNode, "SEND " + newPacket.toSynopticString("tx"));
 				inTransitMsgs.add(newPacket);
 			}
 		}else{
 			Packet newPacket = new Packet(to, from, protocol, payload);
-			logEvent(fromNode, "SEND " + newPacket.toSynopticString());
+			logEvent(fromNode, "SEND " + newPacket.toSynopticString("tx"));
 			inTransitMsgs.add(newPacket);
 		}
 	}
@@ -721,7 +721,7 @@ public class Simulator extends Manager {
 		Node destNode = nodes.get(destAddr);
 		vtimes.get(destAddr).updateTo(vtimes.get(srcAddr));
 				
-		logEvent(destNode, "RECVD " + pkt.toSynopticString());
+		logEvent(destNode, "RECVD " + pkt.toSynopticString("rx"));
 				
 		try{
 			destNode.onReceive(srcAddr, pkt.getProtocol(), pkt.getPayload());

@@ -288,8 +288,9 @@ public class Packet {
 
 	}
 
-	protected String toSynopticString() {
+	protected String toSynopticString(String typeAugment) {
 		return new String("src:" + src + " dest:" + dest + " proto:" + protocol + 
-				" contents:" + Utility.byteArrayToString(payload));
+				" contents:" + Utility.byteArrayToString(payload) +
+				" " + typeAugment + "." + Utility.byteArrayToString(payload)); 
 	}
 }
