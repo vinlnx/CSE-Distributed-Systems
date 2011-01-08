@@ -353,6 +353,16 @@ public class Simulator extends Manager {
 			}
 		}
 	}
+	
+	@Override
+	protected void storageWriteEvent(Node node, String description) {
+		logEvent(node, "WRITE " + description);
+	}
+	
+	@Override
+	protected void storageReadEvent(Node node, String description) {
+		logEvent(node, "READ " + description);
+	}
 
 	/****************** Methods to check and handle events ******************/
 

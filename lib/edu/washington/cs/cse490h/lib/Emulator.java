@@ -490,6 +490,17 @@ public class Emulator extends Manager {
 		}
 	}
 	
+	@Override
+	protected void storageWriteEvent(Node node, String description) {
+		logEvent(node, "WRITE " + description);
+	}
+	
+	@Override
+	protected void storageReadEvent(Node node, String description) {
+		logEvent(node, "READ" + description);
+	}
+
+	
 	/**
 	 * Called by the NodeServer to signal that it has finished execution
 	 */

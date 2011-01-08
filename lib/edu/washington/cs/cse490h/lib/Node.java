@@ -201,7 +201,8 @@ public abstract class Node {
 	 */
 	public PersistentStorageWriter getWriter(String filename, boolean append) throws IOException{
 		if(!Utility.fileExists(this, filename)){
-			checkWriteCrash("creation of " + filename);
+			handleDiskWriteEvent("creation of " + filename,
+					"create " + filename);
 		}
 		Utility.mkdirs(addr);
 		File f = new File(Utility.realFilename(addr, filename));
@@ -209,15 +210,32 @@ public abstract class Node {
 	}
 
 	/**
-	 * Called before any modification of persistent storage. Tells the manager
-	 * to check whether we should crash or not.
+	 * Called before any modification of persistent storage. 
+	 * 
+	 * @param description
+	 *            Helpful description of the operation that is being attempted.
+	 *            This is mostly to aid in debugging and user-specified crashes.
+	 * 
+	 * @param synDescription
+	 *			  Synoptic string to use for this event
+	 */
+	void handleDiskWriteEvent(String description, String synDescription) {
+		// Ask the manager to check whether we should crash or not.
+		manager.checkWriteCrash(this, description);
+		// Since we didn't crash, notify manager of this write event.
+		manager.storageWriteEvent(this, synDescription);
+	}
+	
+	/**
+	 * Called before any retrieval of state from persistent storage.
 	 * 
 	 * @param description
 	 *            Helpful description of the operation that is being attempted.
 	 *            This is mostly to aid in debugging and user-specified crashes.
 	 */
-	void checkWriteCrash(String description) {
-		manager.checkWriteCrash(this, description);
+	public void handleDiskReadEvent(String synDescription) {
+		// Notify manager of this read event.
+		manager.storageReadEvent(this, synDescription);
 	}
 	
 	@Override

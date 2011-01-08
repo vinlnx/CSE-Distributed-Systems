@@ -247,4 +247,24 @@ public abstract class Manager {
 	protected void setTime(long time) {
 		this.time = time;
 	}
+
+
+	/**
+	 * Triggered whenever the node attempts to write to the local storage device.
+	 * @param node
+	 * 			The node that is trying to write
+	 * @param description
+	 * 			The description of the write
+	 */
+	protected abstract void storageWriteEvent(Node node, String description);
+
+	
+	/**
+	 * Triggered whenever the node attempts to read from the local storage device.
+	 * @param node
+	 * 			The node that is trying to read
+	 * @param description
+	 * 			The description of the read
+	 */
+	protected abstract void storageReadEvent(Node node, String description);
 }
