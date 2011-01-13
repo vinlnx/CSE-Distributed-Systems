@@ -22,10 +22,6 @@ public class Simulator extends Manager {
     
 	private HashMap<Integer, Node> nodes;
 
-	// TODO: migrate to using Node.vtime instead of this once you figure out
-	// how to embed vtime in Packet
-	private HashMap<Integer, VectorTime> vtimes;
-	
 	private HashSet<Integer> crashedNodes;
 	
 	// the global logical time ordering which increments by 1 on each
@@ -837,15 +833,14 @@ public class Simulator extends Manager {
 	 * @param node node generating the event
 	 * @param eventStr the event string description of the event
 	 */
+	@Override
 	public void logEvent(Node node, String eventStr) {
+		// The Simulator implicitly totally orders events (because it is single threaded)
+		// so we also output a globally total order (in addition to the partial order
+		// that is implemented in super).
 		this.synTotalOrderLogger.logEvent("" + this.globalLogicalTime, node, eventStr);
 		this.globalLogicalTime += 1;
 		
-		// step() comes before logging because on communication, we've updated 
-		// the destination vtime to be at least the source, but it needs to be
-		// strictly greater than the source.
-		VectorTime vtime = vtimes.get(node.addr);
-		vtime.step(node.addr);
-		this.synPartialOrderLogger.logEvent("" + vtime.toString(), node, eventStr);
+		super.logEvent(node, eventStr);
 	}
 }

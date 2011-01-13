@@ -917,7 +917,8 @@ public class Emulator extends Manager {
 		}
 	}
 
+	@Override
 	public void logEvent(Node node, String eventStr) {
-		// TODO: Synoptic logging here
+		super.logEvent(node, eventStr);
 	}
 }
