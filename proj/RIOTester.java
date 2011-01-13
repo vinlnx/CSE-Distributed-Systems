@@ -22,10 +22,23 @@ public class RIOTester extends RIONode {
 	private int numFinished;
 
 	private boolean failed = false;
+	
+	@Override
+	public String packetBytesToString(byte[] bytes) {
+		RIOPacket packet = RIOPacket.unpack(bytes);
+		if (packet == null) {
+			return super.packetBytesToString(bytes);
+		}
+		return packet.toString();
+	}		
 
 	@Override
 	public void start() {
 		logOutput("Starting up...");
+
+		// Generate a user-level synoptic event to indicate that the node started.
+		logSynopticEvent("started");
+		
 		receivedNums = new HashMap<Integer, Integer>();
 		nextNum = new HashMap<Integer, Integer>();
 		randNumGen = new Random();

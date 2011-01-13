@@ -56,7 +56,7 @@ public class Simulator extends Manager {
 	public Simulator(Class<? extends Node> nodeImpl, Long seed, String replayOutputFilename, String replayInputFilename)
 			throws IllegalArgumentException, IOException {
 		super(nodeImpl, seed, replayOutputFilename, replayInputFilename);
-
+		
 		setParser(new SimulationCommandsParser());
 
 		if (seed == null) {
@@ -693,18 +693,18 @@ public class Simulator extends Manager {
 			for(Integer i: nodes.keySet()) {
 				if(i != from){
 					Packet newPacket = new Packet(i, from, protocol, payload);
-					logEvent(fromNode, "SEND " + newPacket.toSynopticString("tx"));
+					logEvent(fromNode, "SEND " + newPacket.toSynopticString(fromNode));
 					inTransitMsgs.add(newPacket);
 				}
 			}
 			for(Integer i: crashedNodes) {
 				Packet newPacket = new Packet(i, from, protocol, payload);
-				logEvent(fromNode, "SEND " + newPacket.toSynopticString("tx"));
+				logEvent(fromNode, "SEND " + newPacket.toSynopticString(fromNode));
 				inTransitMsgs.add(newPacket);
 			}
 		}else{
 			Packet newPacket = new Packet(to, from, protocol, payload);
-			logEvent(fromNode, "SEND " + newPacket.toSynopticString("tx"));
+			logEvent(fromNode, "SEND " + newPacket.toSynopticString(fromNode));
 			inTransitMsgs.add(newPacket);
 		}
 	}
@@ -731,7 +731,7 @@ public class Simulator extends Manager {
 		Node destNode = nodes.get(destAddr);
 		vtimes.get(destAddr).updateTo(vtimes.get(srcAddr));
 				
-		logEvent(destNode, "RECVD " + pkt.toSynopticString("rx"));
+		logEvent(destNode, "RECVD " + pkt.toSynopticString(destNode));
 				
 		try{
 			destNode.onReceive(srcAddr, pkt.getProtocol(), pkt.getPayload());
@@ -837,7 +837,7 @@ public class Simulator extends Manager {
 	 * @param node node generating the event
 	 * @param eventStr the event string description of the event
 	 */
-	private void logEvent(Node node, String eventStr) {
+	public void logEvent(Node node, String eventStr) {
 		this.synTotalOrderLogger.logEvent("" + this.globalLogicalTime, node, eventStr);
 		this.globalLogicalTime += 1;
 		

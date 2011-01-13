@@ -238,6 +238,18 @@ public abstract class Node {
 		manager.storageReadEvent(this, synDescription);
 	}
 	
+	
+	/**
+	 * Returns a string representation of the packet bytes processed by the simulator.
+	 * Used to output simulator-observed payloads to synoptic logs
+	 * 
+	 * @param bytes packet bytes observed by the simulator
+	 * @return string representation of the packet bytes
+	 */
+	public String packetBytesToString(byte[] bytes) {
+		return Utility.byteArrayToString(bytes);
+	}
+	
 	@Override
 	public String toString(){
 		return "addr: " + addr;
@@ -252,4 +264,13 @@ public abstract class Node {
 	final public String toSynopticString() {
 		return "" + addr;
 	}
+	
+	/**
+	 * Generates a user-level synoptic event in the synoptic logs
+	 * @param eventStr the string representing this event
+	 */
+	final public void logSynopticEvent(String eventStr) {
+		this.manager.logEvent(this, eventStr);
+	}
+	
 }

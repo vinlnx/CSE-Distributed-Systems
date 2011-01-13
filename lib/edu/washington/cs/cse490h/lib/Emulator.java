@@ -854,7 +854,7 @@ public class Emulator extends Manager {
 		}
 		
 		Packet newPacket = new Packet(to, fromNode.addr, protocol, payload);
-		logEvent(fromNode, "SEND " + newPacket.toSynopticString("tx"));	//XXX: broadcasts are one msg here, whereas simulator they are multiple
+		logEvent(fromNode, "SEND " + newPacket.toSynopticString(fromNode));	//XXX: broadcasts are one msg here, whereas simulator they are multiple
 		sendToRouter(to, newPacket.pack());
 		return;
 	}
@@ -885,7 +885,7 @@ public class Emulator extends Manager {
 			return;
 		}
 		
-		logEvent(node, "RECVD " + pkt.toSynopticString("rx"));
+		logEvent(node, "RECVD " + pkt.toSynopticString(node));
 		
 		if(pkt.getDest() == address || pkt.getDest() == Manager.BROADCAST_ADDRESS) {
 			try{
@@ -917,7 +917,7 @@ public class Emulator extends Manager {
 		}
 	}
 
-	private void logEvent(Node node, String eventStr) {
+	public void logEvent(Node node, String eventStr) {
 		// TODO: Synoptic logging here
 	}
 }

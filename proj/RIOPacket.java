@@ -5,6 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 import edu.washington.cs.cse490h.lib.Packet;
+import edu.washington.cs.cse490h.lib.Utility;
 
 /**
  * This conveys the header for reliable, in-order message transfer. This is
@@ -111,5 +112,12 @@ public class RIOPacket {
 			// will return null
 		}
 		return null;
+	}
+
+	/**
+	 * String representation of a RIOPacket
+	 */
+	public String toString() {
+		return "rio-proto: " + this.protocol + " rio-seqNum:" + this.seqNum + " rio-payload:" + Utility.byteArrayToString(this.payload); 
 	}
 }
