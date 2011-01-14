@@ -50,7 +50,7 @@ public abstract class Node {
 	// 1. be able to deliver messages in the same round that they are sent
 	// 2. include a drift event, which pushes back all subsequent time-based
 	//    events (timers and commands)
-	protected long drift;
+	long drift;
 
 	/**
 	 * Called by the manager to initialize certain variables. Students should
@@ -200,7 +200,7 @@ public abstract class Node {
 	 *             If the file cannot be opened for writing
 	 */
 	public PersistentStorageWriter getWriter(String filename, boolean append) throws IOException{
-		if(!Utility.fileExists(this, filename)){
+		if(!Utility.fileExists(this, filename) || !append){
 			checkWriteCrash("creation of " + filename);
 		}
 		Utility.mkdirs(addr);

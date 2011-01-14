@@ -6,6 +6,7 @@
 public class Protocol {
 	// Protocols for the Reliable in-order message layer
 	// These should be Packet protocols
+	// TODO: make these enums so it's clearer when to use RIOPacket, or something else
 	public static final int DATA = 0;
 	public static final int ACK = 1;
 

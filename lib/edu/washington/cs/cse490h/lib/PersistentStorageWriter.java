@@ -20,6 +20,7 @@ import java.io.Writer;
  * a crash than write("abc\n");
  * 
  */
+//TODO: byte stream rather than character stream
 public class PersistentStorageWriter extends BufferedWriter {
 	private File f;
 	private Node n;
