@@ -571,6 +571,7 @@ public class Emulator extends Manager {
 				double rand = Utility.getRNG().nextDouble();
 				if(rand < dropRate){
 					System.out.println("Randomly dropping: " + p.toString());
+					logEvent(node, "DROP " + p.toSynopticString(node));
 					iter.remove();
 				}
 			}
@@ -588,8 +589,11 @@ public class Emulator extends Manager {
 				
 				if(!input.equals("")){
 					String[] dropList = input.split("\\s+");
+					Packet p;
 					for(String s: dropList){
-						toBeRemoved.add( currentPackets.get(Integer.parseInt(s)) );
+						p = currentPackets.get(Integer.parseInt(s));
+						toBeRemoved.add(p);
+						logEvent(node, "DROP " + p.toSynopticString(node));
 					}
 				}
 				
@@ -609,6 +613,7 @@ public class Emulator extends Manager {
 							Packet p = currentPackets.get(Integer.parseInt(s));
 							inTransitMsgs.add(p);
 							toBeRemoved.add(p);
+							logEvent(node, "DELAY " + p.toSynopticString(node));
 						}
 					}
 					
@@ -633,6 +638,7 @@ public class Emulator extends Manager {
 				double adjustedDelay = delayRate / (1 - dropRate);
 				if(rand < adjustedDelay){
 					System.out.println("Randomly Delaying: " + p.toString());
+					logEvent(node, "DELAY " + p.toSynopticString(node));
 					iter.remove();
 					inTransitMsgs.add(p);
 				}

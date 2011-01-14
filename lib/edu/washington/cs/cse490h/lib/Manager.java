@@ -276,8 +276,9 @@ public abstract class Manager {
 
 	
 	/**
-	 * Logs an event string for a node to synoptic logs (total\partial)
-	 * @param node Node instance with which to associate the event string
+	 * Logs an event string for a node to synoptic partial log without a node field
+	 * 
+	 * @param node Node instance with which to associate the event string (for timing)
 	 * @param eventStr the event string
 	 */
 	protected void logEvent(Node node, String eventStr) {
@@ -286,6 +287,6 @@ public abstract class Manager {
 		// strictly greater than the source.
 		VectorTime vtime = vtimes.get(node.addr);
 		vtime.step(node.addr);
-		this.synPartialOrderLogger.logEvent("" + vtime.toString(), node, eventStr);
+		this.synPartialOrderLogger.logEvent("" + vtime.toString(), eventStr);
 	}
 }
