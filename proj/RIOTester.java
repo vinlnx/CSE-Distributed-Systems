@@ -21,6 +21,8 @@ public class RIOTester extends RIONode {
 	private Random randNumGen;
 	private int numFinished;
 
+	public static int NUM_NODES = 10;
+
 	private boolean failed = false;
 	
 	@Override
@@ -48,7 +50,7 @@ public class RIOTester extends RIONode {
 	@Override
 	public void onCommand(String command) {
 		if (command.equals("begin")) {
-			for (int i = 0; i < RIONode.NUM_NODES; ++i) {
+			for (int i = 0; i < RIOTester.NUM_NODES; ++i) {
 				nextNum.put(i, 0);
 			}
 			sendNextNum();
@@ -122,7 +124,7 @@ public class RIOTester extends RIONode {
 		do {
 			// choose a destination that we have not sent 100 messages to yet
 			doAgain = false;
-			destAddr = randNumGen.nextInt(RIONode.NUM_NODES);
+			destAddr = randNumGen.nextInt(RIOTester.NUM_NODES);
 			next = nextNum.get(destAddr);
 			if (next == -1) {
 				doAgain = true;
@@ -130,7 +132,7 @@ public class RIOTester extends RIONode {
 			if (next == 101) {
 				// We just sent 100 to this destination
 				nextNum.put(destAddr, -1);
-				if (++numFinished == RIONode.NUM_NODES) {
+				if (++numFinished == RIOTester.NUM_NODES) {
 					// If we are finished with everything then stop and don't
 					// schedule another timeout
 					return;
