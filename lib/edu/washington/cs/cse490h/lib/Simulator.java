@@ -387,6 +387,7 @@ public class Simulator extends Manager {
 				if(rand < dropRate){
 					System.out.println("Randomly dropping: " + p.toString());
 					Node destNode = nodes.get(p.getDest());
+					System.out.println("NODE IS : " + destNode.toString());
 					logEvent(destNode, "DROP " + p.toSynopticString(destNode));
 					iter.remove();
 				}
@@ -410,6 +411,7 @@ public class Simulator extends Manager {
 						p = currentPackets.get(Integer.parseInt(s));
 						toBeRemoved.add(p);
 						Node destNode = nodes.get(p.getDest());
+						System.out.println("NODE IS : " + destNode.toString());
 						logEvent(destNode, "DROP " + p.toSynopticString(destNode));	
 					}
 				}
@@ -432,6 +434,7 @@ public class Simulator extends Manager {
 							inTransitMsgs.add(p);
 							toBeRemoved.add(p);
 							Node destNode = nodes.get(p.getDest());
+							System.out.println("NODE IS : " + destNode.toString());
 							logEvent(destNode, "DELAY " + p.toSynopticString(destNode));
 						}
 					}
@@ -458,6 +461,7 @@ public class Simulator extends Manager {
 				if(rand < adjustedDelay){
 					System.out.println("Randomly Delaying: " + p.toString());
 					Node destNode = nodes.get(p.getDest());
+					System.out.println("NODE IS : " + destNode.toString());
 					logEvent(destNode, "DELAY " + p.toSynopticString(destNode));
 					iter.remove();
 					inTransitMsgs.add(p);

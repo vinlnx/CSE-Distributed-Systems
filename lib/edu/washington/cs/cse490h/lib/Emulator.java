@@ -320,7 +320,7 @@ public class Emulator extends Manager {
 		System.out.println(stopString());
 		if (node != null) {
 			System.out.println(node.addr + ": " + node.toString());
-			logEvent(node, "STOPPED");
+			logEventWithNodeField(node, "STOPPED");
 		} else {
 			System.out.println("failed");
 		}
@@ -396,7 +396,7 @@ public class Emulator extends Manager {
 		}
 
 		node.init(this, address);
-		logEvent(node, "START");
+		logEventWithNodeField(node, "START");
 		failed = false;
 
 		try {
@@ -438,7 +438,7 @@ public class Emulator extends Manager {
 			crash = e;
 		}
 
-		logEvent(node, "FAILURE");
+		logEventWithNodeField(node, "FAILURE");
 
 		waitingTOs.clear();
 		node = null;
@@ -492,12 +492,12 @@ public class Emulator extends Manager {
 	
 	@Override
 	protected void storageWriteEvent(Node node, String description) {
-		logEvent(node, "WRITE " + description);
+		logEventWithNodeField(node, "WRITE " + description);
 	}
 	
 	@Override
 	protected void storageReadEvent(Node node, String description) {
-		logEvent(node, "READ" + description);
+		logEventWithNodeField(node, "READ" + description);
 	}
 
 	
@@ -812,7 +812,7 @@ public class Emulator extends Manager {
 			deliverPkt(ev.p);
 			break;
 		case TIMEOUT:
-			logEvent(ev.to.node, "TIMEOUT " + ev.to.cb.toString());
+			logEventWithNodeField(ev.to.node, "TIMEOUT " + ev.to.cb.toString());
 						
 			try{
 				ev.to.cb.invoke();
@@ -914,13 +914,28 @@ public class Emulator extends Manager {
 			return;
 		}
 		
-		logEvent(node, "COMMAND" + msg);
+		logEventWithNodeField(node, "COMMAND" + msg);
 		
 		try{
 			node.onCommand(msg);
 		} catch (NodeCrashException e) {
 			failNode();
 		}
+	}
+	
+	/**
+	 * Log the event in the synoptic log using the simulator's global logical ordering with a node field
+	 * 
+	 * @param node node generating the event
+	 * @param eventStr the event string description of the event
+	 */
+	public void logEventWithNodeField(Node node, String eventStr) {
+		// The Simulator implicitly totally orders events (because it is single threaded)
+		// so we also output a globally total order (in addition to the partial order
+		// that is implemented in super).
+		String eventStrNoded = "node:" + node.toSynopticString() + " " + eventStr;
+		this.logEvent(node, eventStrNoded);
+		super.logEvent(node, eventStrNoded);
 	}
 
 	@Override
