@@ -30,11 +30,18 @@ public class PersistentStorageWriter extends BufferedWriter {
 		this.n = n;
 		this.f = f;
 	}
+	
+	private String logEscape(String s) {
+		s = s.replace(" ", "_");
+		s = s.replace("\n", "|");
+		return "'" + "'";
+	}
 
 	// methods for the file writer
 	@Override
 	public void write(int c) throws IOException {
-		n.checkWriteCrash("write(" + c + ")");
+		n.handleDiskWriteEvent("write(" + c + ")",
+				"-buf " + logEscape("" + c));
 		
 		super.write(c);
 		super.flush();
@@ -42,7 +49,8 @@ public class PersistentStorageWriter extends BufferedWriter {
 
 	@Override
 	public void write(char[] cbuf, int off, int len) throws IOException {
-		n.checkWriteCrash("write(cbuf, " + off +  ", " + len + ")");
+		n.handleDiskWriteEvent("write(cbuf, " + off +  ", " + len + ")",
+				"-buf-off-len " + logEscape(new String(cbuf)) + " " + off + " " + len);
 		
 		super.write(cbuf, off, len);
 		super.flush();
@@ -50,7 +58,8 @@ public class PersistentStorageWriter extends BufferedWriter {
 
 	@Override
 	public void write(String s, int off, int len) throws IOException {
-		n.checkWriteCrash("write(s, " + off +  ", " + len + ")");
+		n.handleDiskWriteEvent("write(s, " + off +  ", " + len + ")",
+				"-buf-off-len " + off + " " + len);
 		
 		super.write(s, off, len);
 		super.flush();
@@ -58,7 +67,8 @@ public class PersistentStorageWriter extends BufferedWriter {
 
 	@Override
 	public void newLine() throws IOException {
-		n.checkWriteCrash("newLine()");
+		n.handleDiskWriteEvent("newLine()",
+				"-newline");
 		
 		super.newLine();
 		super.flush();
@@ -66,7 +76,8 @@ public class PersistentStorageWriter extends BufferedWriter {
 
 	@Override
 	public void write(char[] cbuf) throws IOException {
-		n.checkWriteCrash("write(cbuf)");
+		n.handleDiskWriteEvent("write(cbuf)",
+				"-buf " + logEscape(new String(cbuf)));
 		
 		super.write(cbuf);
 		super.flush();
@@ -74,7 +85,8 @@ public class PersistentStorageWriter extends BufferedWriter {
 
 	@Override
 	public Writer append(CharSequence csq) throws IOException {
-		n.checkWriteCrash("append(csq)");
+		n.handleDiskWriteEvent("append(csq)",
+				"-append_buf " + logEscape("" + csq));
 		
 		Writer ret = super.append(csq);
 		super.flush();
@@ -85,7 +97,8 @@ public class PersistentStorageWriter extends BufferedWriter {
 	@Override
 	public Writer append(CharSequence csq, int start, int end)
 			throws IOException {
-		n.checkWriteCrash("append(csq, " + start + ", " + end + ")");
+		n.handleDiskWriteEvent("append(csq, " + start + ", " + end + ")",
+				"-append_buf-start-end " + logEscape("" + csq) + " " + start + " " + end);
 		
 		Writer ret = super.append(csq, start, end);
 		super.flush();
@@ -95,7 +108,8 @@ public class PersistentStorageWriter extends BufferedWriter {
 
 	@Override
 	public Writer append(char c) throws IOException{
-		n.checkWriteCrash("append(" + c + ")");
+		n.handleDiskWriteEvent("append(" + c + ")",
+				"-append_buf " + logEscape(String.valueOf(c)));
 		
 		Writer ret = super.append(c);
 		super.flush();
@@ -105,14 +119,16 @@ public class PersistentStorageWriter extends BufferedWriter {
 
 	@Override
 	public void write(String str) throws IOException{
-		n.checkWriteCrash("write(str)");
+		n.handleDiskWriteEvent("write(str)",
+				"-buf " + logEscape(str));
 		
 		super.write(str);
 		super.flush();
 	}
 
 	public boolean delete() throws IOException{
-		n.checkWriteCrash("delete of" + f.getName());
+		n.handleDiskWriteEvent("delete of" + f.getName(),
+				"-delete " + f.getName());
 		
 		this.close();
 		return f.delete();

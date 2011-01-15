@@ -16,14 +16,14 @@ public abstract class Manager {
 	protected static final int BROADCAST_ADDRESS = 255;
 	protected static final int MAX_ADDRESS = 255;
 	
-	protected final Class<? extends Node> nodeImpl;
 	protected final double failureRate;
 	protected final double recoveryRate;
 	protected final double dropRate;
 	protected final double delayRate;
 	
     protected long seed;
-    
+    protected final Class<? extends Node> nodeImpl;
+
 	private int pktsSent;
 	protected ArrayList<Event> sortedEvents;
 	protected ArrayList<Timeout> waitingTOs;
@@ -247,4 +247,32 @@ public abstract class Manager {
 	protected void setTime(long time) {
 		this.time = time;
 	}
+
+
+	/**
+	 * Triggered whenever the node attempts to write to the local storage device.
+	 * @param node
+	 * 			The node that is trying to write
+	 * @param description
+	 * 			The description of the write
+	 */
+	protected abstract void storageWriteEvent(Node node, String description);
+
+	
+	/**
+	 * Triggered whenever the node attempts to read from the local storage device.
+	 * @param node
+	 * 			The node that is trying to read
+	 * @param description
+	 * 			The description of the read
+	 */
+	protected abstract void storageReadEvent(Node node, String description);
+
+	
+	/**
+	 * Logs an event string for a node to synoptic logs (total\partial)
+	 * @param node Node instance with which to associate the event string
+	 * @param eventStr the event string
+	 */
+	protected abstract void logEvent(Node node, String eventStr);
 }

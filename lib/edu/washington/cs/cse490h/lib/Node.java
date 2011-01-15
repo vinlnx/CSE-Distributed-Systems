@@ -200,8 +200,9 @@ public abstract class Node {
 	 *             If the file cannot be opened for writing
 	 */
 	public PersistentStorageWriter getWriter(String filename, boolean append) throws IOException{
-		if(!Utility.fileExists(this, filename) || !append){
-			checkWriteCrash("creation of " + filename);
+		if(!Utility.fileExists(this, filename) || !append){																																																											if(!Utility.fileExists(this, filename)){
+			handleDiskWriteEvent("creation of " + filename,
+					"create " + filename);
 		}
 		Utility.mkdirs(addr);
 		File f = new File(Utility.realFilename(addr, filename));
@@ -209,15 +210,44 @@ public abstract class Node {
 	}
 
 	/**
-	 * Called before any modification of persistent storage. Tells the manager
-	 * to check whether we should crash or not.
+	 * Called before any modification of persistent storage. 
+	 * 
+	 * @param description
+	 *            Helpful description of the operation that is being attempted.
+	 *            This is mostly to aid in debugging and user-specified crashes.
+	 * 
+	 * @param synDescription
+	 *			  Synoptic string to use for this event
+	 */
+	void handleDiskWriteEvent(String description, String synDescription) {
+		// Ask the manager to check whether we should crash or not.
+		manager.checkWriteCrash(this, description);
+		// Since we didn't crash, notify manager of this write event.
+		manager.storageWriteEvent(this, synDescription);
+	}
+	
+	/**
+	 * Called before any retrieval of state from persistent storage.
 	 * 
 	 * @param description
 	 *            Helpful description of the operation that is being attempted.
 	 *            This is mostly to aid in debugging and user-specified crashes.
 	 */
-	void checkWriteCrash(String description) {
-		manager.checkWriteCrash(this, description);
+	public void handleDiskReadEvent(String synDescription) {
+		// Notify manager of this read event.
+		manager.storageReadEvent(this, synDescription);
+	}
+	
+	
+	/**
+	 * Returns a string representation of the packet bytes processed by the simulator.
+	 * Used to output simulator-observed payloads to synoptic logs
+	 * 
+	 * @param bytes packet bytes observed by the simulator
+	 * @return string representation of the packet bytes
+	 */
+	public String packetBytesToString(byte[] bytes) {
+		return Utility.byteArrayToString(bytes);
 	}
 	
 	@Override
@@ -234,4 +264,13 @@ public abstract class Node {
 	final public String toSynopticString() {
 		return "" + addr;
 	}
+	
+	/**
+	 * Generates a user-level synoptic event in the synoptic logs
+	 * @param eventStr the string representing this event
+	 */
+	final public void logSynopticEvent(String eventStr) {
+		this.manager.logEvent(this, eventStr);
+	}
+	
 }

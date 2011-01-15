@@ -304,7 +304,7 @@ public class Node2PC extends Node{
 		coordinator = true;
 
 		// send a vote request to all participants
-		String message = "";
+		String message = "VOTE-REQ";
 		broadcast(Protocol.VOTEREQ_PKT, Utility.stringToByteArray(message));
 
 		// wait for all of the participants to respond
@@ -406,7 +406,7 @@ public class Node2PC extends Node{
 	 * coordinator for a decision.
 	 */
 	public void terminationProtocol() {
-		String message = "";
+		String message = "DECISION-REQ";
 		currentState = State.DECISIONWAIT;
 		broadcast(Protocol.DECISIONREQ_PKT, Utility.stringToByteArray(message));
 		add2PCTimeout(-1);
