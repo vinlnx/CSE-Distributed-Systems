@@ -118,6 +118,6 @@ public class RIOPacket {
 	 * String representation of a RIOPacket
 	 */
 	public String toString() {
-		return "rio-proto: " + this.protocol + " rio-seqNum:" + this.seqNum + " rio-payload:" + Utility.byteArrayToString(this.payload); 
+		return "rio-proto:" + this.protocol + " rio-seqNum:" + this.seqNum + " rio-payload:" + Utility.byteArrayToString(this.payload); 
 	}
 }

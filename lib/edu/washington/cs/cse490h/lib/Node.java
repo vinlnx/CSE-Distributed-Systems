@@ -270,7 +270,8 @@ public abstract class Node {
 	 * @param eventStr the string representing this event
 	 */
 	final public void logSynopticEvent(String eventStr) {
-		this.manager.logEvent(this, eventStr);
+		String eventStrNoded = "node:" + this.toSynopticString() + " USER-EVENT " + eventStr;
+		this.manager.logEvent(this, eventStrNoded);
 	}
 	
 }

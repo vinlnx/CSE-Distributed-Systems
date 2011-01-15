@@ -7,6 +7,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * Abstract class defining generic routines for running network code under the
@@ -23,7 +24,12 @@ public abstract class Manager {
 	
     protected long seed;
     protected final Class<? extends Node> nodeImpl;
-
+    
+    // TODO: migrate to using Node.vtime instead of this once you figure out
+	// how to embed vtime in Packet
+    // Maps: node addr -> node's current vector time
+	protected HashMap<Integer, VectorTime> vtimes;
+	
 	private int pktsSent;
 	protected ArrayList<Event> sortedEvents;
 	protected ArrayList<Timeout> waitingTOs;
@@ -270,9 +276,17 @@ public abstract class Manager {
 
 	
 	/**
-	 * Logs an event string for a node to synoptic logs (total\partial)
-	 * @param node Node instance with which to associate the event string
+	 * Logs an event string for a node to synoptic partial log without a node field
+	 * 
+	 * @param node Node instance with which to associate the event string (for timing)
 	 * @param eventStr the event string
 	 */
-	protected abstract void logEvent(Node node, String eventStr);
+	protected void logEvent(Node node, String eventStr) {
+		// step() comes before logging because on communication, we've updated 
+		// the destination vtime to be at least the source, but it needs to be
+		// strictly greater than the source.
+		VectorTime vtime = vtimes.get(node.addr);
+		vtime.step(node.addr);
+		this.synPartialOrderLogger.logEvent("" + vtime.toString(), eventStr);
+	}
 }
