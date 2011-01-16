@@ -68,6 +68,7 @@ public class Simulator extends Manager {
 		crashedNodes = new HashSet<Integer>();
 
 		setTime(0);
+		this.logSimulatorEvent("TIMESTEP time:" + this.now());
 	}
 
 	/**
@@ -157,17 +158,9 @@ public class Simulator extends Manager {
 						}
 					}
 				} while (!advance);
-
-				// The order we check doesn't matter that much
-				checkInTransit(currentRoundEvents);
-
-				checkTimeouts(currentRoundEvents);
-
-				checkCrash(currentRoundEvents);
-
-				executeEvents(currentRoundEvents);
-
-				setTime(now() + 1);
+				
+				this.doTimestep(currentRoundEvents);
+				
 			}
 		} else if (cmdInputType == InputType.USER) {
 			while (true) {
@@ -207,22 +200,35 @@ public class Simulator extends Manager {
 						}
 					}
 				} while (!advance);
-
-				// The order we check doesn't matter that much
-				checkInTransit(currentRoundEvents);
-
-				checkTimeouts(currentRoundEvents);
-
-				checkCrash(currentRoundEvents);
-
-				executeEvents(currentRoundEvents);
-
-				setTime(now() + 1);
+				
+				this.doTimestep(currentRoundEvents);
+				
 			}
 		}
 
 		stop();
 	}
+	
+	
+	/**
+	 * Perform a single simulator time step with a set of events as argument
+	 *  
+	 * @param currentRoundEvents
+	 */
+	private void doTimestep(ArrayList<Event> currentRoundEvents) {
+		// The order we check doesn't matter that much
+		checkInTransit(currentRoundEvents);
+
+		checkTimeouts(currentRoundEvents);
+
+		checkCrash(currentRoundEvents);
+
+		executeEvents(currentRoundEvents);
+
+		setTime(now() + 1);
+		logSimulatorEvent("TIMESTEP time:" + this.now());
+	}
+	
 	
 	@Override
 	protected void stop(){
@@ -361,6 +367,20 @@ public class Simulator extends Manager {
 	}
 
 	/****************** Methods to check and handle events ******************/
+	
+	/**
+	 * Logs an in transit event -- a DROP or a DELAY event.
+	 */
+	private void logInTransit(Packet p, String netEvent) {
+		Node destNode = nodes.get(p.getDest());
+		if (destNode == null) {
+			// Node failed while the packet was in transit.
+			// Ignore the transit event.
+			return;
+		}
+		logEvent(destNode, netEvent + " " + p.toSynopticString(destNode));
+	}
+	
 
 	/**
 	 * Goes through all of the in transit messages and decides whether to drop,
@@ -386,9 +406,7 @@ public class Simulator extends Manager {
 				double rand = Utility.getRNG().nextDouble();
 				if(rand < dropRate){
 					System.out.println("Randomly dropping: " + p.toString());
-					Node destNode = nodes.get(p.getDest());
-					System.out.println("NODE IS : " + destNode.toString());
-					logEvent(destNode, "DROP " + p.toSynopticString(destNode));
+					this.logInTransit(p, "DROP");
 					iter.remove();
 				}
 			}
@@ -410,9 +428,7 @@ public class Simulator extends Manager {
 					for(String s: dropList){
 						p = currentPackets.get(Integer.parseInt(s));
 						toBeRemoved.add(p);
-						Node destNode = nodes.get(p.getDest());
-						System.out.println("NODE IS : " + destNode.toString());
-						logEvent(destNode, "DROP " + p.toSynopticString(destNode));	
+						this.logInTransit(p, "DROP");
 					}
 				}
 				
@@ -433,9 +449,7 @@ public class Simulator extends Manager {
 							p = currentPackets.get(Integer.parseInt(s));
 							inTransitMsgs.add(p);
 							toBeRemoved.add(p);
-							Node destNode = nodes.get(p.getDest());
-							System.out.println("NODE IS : " + destNode.toString());
-							logEvent(destNode, "DELAY " + p.toSynopticString(destNode));
+							this.logInTransit(p, "DELAY");
 						}
 					}
 					
@@ -460,11 +474,9 @@ public class Simulator extends Manager {
 				double adjustedDelay = delayRate / (1 - dropRate);
 				if(rand < adjustedDelay){
 					System.out.println("Randomly Delaying: " + p.toString());
-					Node destNode = nodes.get(p.getDest());
-					System.out.println("NODE IS : " + destNode.toString());
-					logEvent(destNode, "DELAY " + p.toSynopticString(destNode));
 					iter.remove();
 					inTransitMsgs.add(p);
+					this.logInTransit(p, "DELAY");
 				}
 			}
 		}
@@ -649,7 +661,7 @@ public class Simulator extends Manager {
 				break;
 			}
 			
-			logEventWithNodeField(ev.to.node, "TIMEOUT at-time:" + ev.to.fireTime + " tout." + ev.to.cb.toSynopticString());
+			logEventWithNodeField(ev.to.node, "TIMEOUT fire-time:" + ev.to.fireTime + " " + ev.to.cb.toSynopticString());
 						
 			try{
 				ev.to.cb.invoke();
@@ -872,5 +884,17 @@ public class Simulator extends Manager {
 		this.synTotalOrderLogger.logEvent("" + this.globalLogicalTime, eventStr);
 		this.globalLogicalTime += 1;
 		super.logEvent(node, eventStr);
+	}
+	
+	/**
+	 * Logs a simulator event across _all_ simulated nodes. The TIMESTEP event
+	 * is of this form -- its reported for every node being simulated.
+	 * 
+	 * @param eventStr
+	 */
+	public void logSimulatorEvent(String eventStr) {
+		for(Node node: nodes.values()) {
+			this.logEventWithNodeField(node, eventStr);
+		}
 	}
 }

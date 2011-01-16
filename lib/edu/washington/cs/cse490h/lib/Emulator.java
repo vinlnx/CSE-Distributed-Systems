@@ -84,6 +84,7 @@ public class Emulator extends Manager {
 
 		this.timeStep = timeStep;
 		setTime(0);
+		this.logEventWithNodeField(node, "TIMESTEP time:" + this.now());
 	}
 
 	/**
@@ -155,6 +156,23 @@ public class Emulator extends Manager {
 		EmulationCommandsParser commandFileParser = new EmulationCommandsParser();
 		sortedEvents = commandFileParser.parseFile(commandFile);
 	}
+
+	/**
+	 * Perform a single emulator time step with a set of events as argument
+	 * 
+	 * @param currentRoundEvents
+	 */
+	private void doTimestep(ArrayList<Event> currentRoundEvents) {
+		// The order we check doesn't really matter
+		checkInTransit(currentRoundEvents);
+
+		checkTimeouts(currentRoundEvents);
+
+		checkCrash(currentRoundEvents);
+
+		executeEvents(currentRoundEvents);
+		
+	}
 	
 	/**
 	 * Starts the emulated node
@@ -191,18 +209,14 @@ public class Emulator extends Manager {
 							}
 						}
 					} while (!advance);
-
-					// The order we check doesn't really matter
-					checkInTransit(currentRoundEvents);
-
-					checkTimeouts(currentRoundEvents);
-
-					checkCrash(currentRoundEvents);
-
-					executeEvents(currentRoundEvents);
+					
+					this.doTimestep(currentRoundEvents);
+					
 				}
 
 				setTime(now() + 1);
+				this.logEventWithNodeField(node, "TIMESTEP time:" + this.now());
+				
 				try {
 					// We sleep here to give a chance for messages to travel
 					// over the network
@@ -298,17 +312,12 @@ public class Emulator extends Manager {
 						}
 					} while (!advance);
 
-					// The order we check doesn't really matter
-					checkInTransit(currentRoundEvents);
-
-					checkTimeouts(currentRoundEvents);
-
-					checkCrash(currentRoundEvents);
-
-					executeEvents(currentRoundEvents);
+					this.doTimestep(currentRoundEvents);
+					
 				}
 				
 				setTime(now() + 1);
+				this.logEventWithNodeField(node, "TIMESTEP time:" + this.now());
 			}
 		}
 		
@@ -812,7 +821,7 @@ public class Emulator extends Manager {
 			deliverPkt(ev.p);
 			break;
 		case TIMEOUT:
-			logEventWithNodeField(ev.to.node, "TIMEOUT " + ev.to.cb.toString());
+			logEventWithNodeField(ev.to.node, "TIMEOUT fire-time:" + ev.to.fireTime + " " + ev.to.cb.toString());
 						
 			try{
 				ev.to.cb.invoke();

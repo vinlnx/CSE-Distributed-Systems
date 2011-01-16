@@ -28,14 +28,14 @@ public class PersistentStorageReader extends BufferedReader {
 	
 	@Override
 	public int read(char[] cbuf, int off, int len) throws IOException {
-		n.handleDiskReadEvent(new String(cbuf) + " "+ off + " " + len);
+		n.handleDiskReadEvent("cbuf:" + new String(cbuf) + " offset:"+ off + " len:" + len);
 		
 		return super.read(cbuf, off, len);
 	}
 	
 	@Override
 	public String readLine() throws IOException {
-		n.handleDiskReadEvent("readLine");
+		n.handleDiskReadEvent("readline");
 		
 		return super.readLine();
 	}

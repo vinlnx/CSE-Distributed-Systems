@@ -200,9 +200,8 @@ public abstract class Node {
 	 *             If the file cannot be opened for writing
 	 */
 	public PersistentStorageWriter getWriter(String filename, boolean append) throws IOException{
-		if(!Utility.fileExists(this, filename) || !append){																																																											if(!Utility.fileExists(this, filename)){
-			handleDiskWriteEvent("creation of " + filename,
-					"create " + filename);
+		if(!Utility.fileExists(this, filename) || !append){
+			handleDiskWriteEvent("creation of " + filename, "create:" + filename);
 		}
 		Utility.mkdirs(addr);
 		File f = new File(Utility.realFilename(addr, filename));
