@@ -11,7 +11,7 @@ import edu.washington.cs.cse490h.lib.Manager;
  * Node -- Class defining the interface and basic functionality of a node. The
  * student should extend this class to provide additional functionality. The
  * visibility of each of the methods/variables are on purpose.
- * 
+ *
  * This code must be written as a state machine -- each upcall must do its work
  * and return so that other upcalls can be delivered
  */
@@ -25,26 +25,26 @@ public abstract class Node {
 	public static double getRecoveryRate(){ return 10/100.0; }
 	public static double getDropRate(){ return 10/100.0; }
 	public static double getDelayRate(){ return 25/100.0; }
-	
+
 	/**
 	 * Special error that is thrown when fail() is called. It is an unchecked
 	 * exception, which allows us to interrupt execution of the node opaquely.
 	 * This extends Error rather than RuntimeException in case some student
 	 * tries to catch Exception.
-	 * 
+	 *
 	 * The student should NOT try to catch this or Error, Throwable, etc.
 	 */
 	class NodeCrashException extends Error {
 		private static final long serialVersionUID = 1418673528976798283L;
 	}
-	
-	// TODO: migrate to this once you figure out how to embedd vtime in Packet 
+
+	// TODO: migrate to this once you figure out how to embedd vtime in Packet
 	// A node's local vector clock -- one per node.
 	// public VectorTime vtime = null;
 
 	private Manager manager;
 	public int addr;
-	
+
 	// TODO: timeout, deliver caused by to, timeout
 	// There are two ways to handle this corner case:
 	// 1. be able to deliver messages in the same round that they are sent
@@ -57,7 +57,7 @@ public abstract class Node {
 	 * not worry about this method. We do this here, rather than in the
 	 * constructor in order to avoid passing a manager to the student's
 	 * implementation
-	 * 
+	 *
 	 * @param manager
 	 *            The manager for the current simulation/emulation
 	 * @param addr
@@ -78,7 +78,7 @@ public abstract class Node {
 	/**
 	 * Stop the node and don't return. Please make sure to call this at the end
 	 * of any overriding fail.
-	 * 
+	 *
 	 * Overriding this method should only be used for logging purposes, since
 	 * you are not guaranteed that it will be called for each crash (especially
 	 * in an emulation)
@@ -89,7 +89,7 @@ public abstract class Node {
 
 	/**
 	 * Called by the manager when a packet has arrived for this node
-	 * 
+	 *
 	 * @param from
 	 *            The address of the node that has sent this message
 	 * @param protocol
@@ -102,7 +102,7 @@ public abstract class Node {
 	/**
 	 * Called by the manager when there is a command for this node from the
 	 * user or a file.
-	 * 
+	 *
 	 * @param command
 	 *            The command for this node
 	 */
@@ -110,7 +110,7 @@ public abstract class Node {
 
 	/**
 	 * This method should be the one called to send a message.
-	 * 
+	 *
 	 * @param destAddr
 	 *            The address of the destination
 	 * @param pkt
@@ -121,17 +121,17 @@ public abstract class Node {
 			System.err.println("Use the broadcast() method if you would like to broadcast a packet");
 			return;
 		}
-		
+
 		try {
 			manager.sendPkt(this, destAddr, protocol, payload);
 		}catch(IllegalArgumentException e) {
 			e.printStackTrace();
 		}
 	}
-	
+
 	/**
 	 * This method should be the one called to broadcast a message to all nodes in the network.
-	 * 
+	 *
 	 * @param destAddr
 	 *            The address of the destination
 	 * @param pkt
@@ -144,11 +144,11 @@ public abstract class Node {
 			e.printStackTrace();
 		}
 	}
-	
+
 	/**
 	 * Adds a timer interrupt for the current node. If timeout is 0, it just
 	 * invokes the method
-	 * 
+	 *
 	 * @param cb
 	 *            The callback object that should be invoked when the interrupt
 	 *            fires
@@ -173,10 +173,10 @@ public abstract class Node {
 			manager.addTimeout(this, timer, cb);
 		}
 	}
-	
+
 	/**
 	 * Gets a PersistentStorageReader object for the filename specified.
-	 * 
+	 *
 	 * @param filename
 	 *            The file to open for reading
 	 * @return A PersistentStorageReader that can read the filename
@@ -186,10 +186,10 @@ public abstract class Node {
 	public PersistentStorageReader getReader(String filename) throws FileNotFoundException{
 		return new PersistentStorageReader(this, filename);
 	}
-	
+
 	/**
 	 * Gets a persistentStorageWriter object for the filename specified
-	 * 
+	 *
 	 * @param filename
 	 *            The file to open for writing
 	 * @param append
@@ -209,12 +209,12 @@ public abstract class Node {
 	}
 
 	/**
-	 * Called before any modification of persistent storage. 
-	 * 
+	 * Called before any modification of persistent storage.
+	 *
 	 * @param description
 	 *            Helpful description of the operation that is being attempted.
 	 *            This is mostly to aid in debugging and user-specified crashes.
-	 * 
+	 *
 	 * @param synDescription
 	 *			  Synoptic string to use for this event
 	 */
@@ -224,10 +224,10 @@ public abstract class Node {
 		// Since we didn't crash, notify manager of this write event.
 		manager.storageWriteEvent(this, synDescription);
 	}
-	
+
 	/**
 	 * Called before any retrieval of state from persistent storage.
-	 * 
+	 *
 	 * @param description
 	 *            Helpful description of the operation that is being attempted.
 	 *            This is mostly to aid in debugging and user-specified crashes.
@@ -236,41 +236,41 @@ public abstract class Node {
 		// Notify manager of this read event.
 		manager.storageReadEvent(this, synDescription);
 	}
-	
-	
+
+
 	/**
 	 * Returns a string representation of the packet bytes processed by the simulator.
 	 * Used to output simulator-observed payloads to synoptic logs
-	 * 
+	 *
 	 * @param bytes packet bytes observed by the simulator
 	 * @return string representation of the packet bytes
 	 */
 	public String packetBytesToString(byte[] bytes) {
 		return Utility.byteArrayToString(bytes);
 	}
-	
+
 	@Override
 	public String toString(){
 		return "addr: " + addr;
 	}
-	
+
 	/**
 	 * Returns a unique string identifier for this node that can be used
 	 * in synoptic log files.
-	 * 
+	 *
 	 * @return unique string identifying this node
 	 */
 	final public String toSynopticString() {
 		return "" + addr;
 	}
-	
+
 	/**
 	 * Generates a user-level synoptic event in the synoptic logs
 	 * @param eventStr the string representing this event
 	 */
 	final public void logSynopticEvent(String eventStr) {
 		String eventStrNoded = "node:" + this.toSynopticString() + " USER-EVENT " + eventStr;
-		this.manager.logEvent(this, eventStrNoded);
+		this.manager.logEvent(this.addr, eventStrNoded);
 	}
-	
+
 }

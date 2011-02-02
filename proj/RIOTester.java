@@ -32,7 +32,7 @@ public class RIOTester extends RIONode {
 			return super.packetBytesToString(bytes);
 		}
 		return packet.toString();
-	}		
+	}	
 
 	@Override
 	public void start() {
