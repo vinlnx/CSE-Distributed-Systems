@@ -188,6 +188,19 @@ public abstract class Node {
 	}
 
 	/**
+	 * Gets a PersistentStorageRInputStream object for the filename specified.
+	 *
+	 * @param filename
+	 *            The file to open for reading
+	 * @return A PersistentStorageInputStream that can read the filename
+	 * @throws FileNotFoundException
+	 *             If the file does not exist or can't be opened for reading
+	 */
+	public PersistentStorageInputStream getInputStream(String filename) throws FileNotFoundException{
+		return new PersistentStorageInputStream(this, filename);
+	}
+
+	/**
 	 * Gets a persistentStorageWriter object for the filename specified
 	 *
 	 * @param filename
@@ -206,6 +219,27 @@ public abstract class Node {
 		Utility.mkdirs(addr);
 		File f = new File(Utility.realFilename(addr, filename));
 		return new PersistentStorageWriter(this, f, append);
+	}
+
+	/**
+	 * Gets a persistentStorageWriter object for the filename specified
+	 *
+	 * @param filename
+	 *            The file to open for writing
+	 * @param append
+	 *            Whether to append to the end of the file, or start at the
+	 *            beginning
+	 * @return A PersistentStorageWriter that can write to the file
+	 * @throws IOException
+	 *             If the file cannot be opened for writing
+	 */
+	public PersistentStorageOutputStream getOutputStream(String filename, boolean append) throws IOException{
+		if(!Utility.fileExists(this, filename) || !append){
+			handleDiskWriteEvent("creation of " + filename, "create:" + filename);
+		}
+		Utility.mkdirs(addr);
+		File f = new File(Utility.realFilename(addr, filename));
+		return new PersistentStorageOutputStream(this, f, append);
 	}
 
 	/**
