@@ -61,9 +61,12 @@ public class Utility {
      * @return the escaped string
      */
     public static String logEscape(String s) {
-        s = s.replace(" ", "_");
-        s = s.replace("\n", "|");
-        return "'" + "'";
+        if (s != null) {
+            s = s.replace(" ", "_");
+            s = s.replace("\n", "|");
+            return "'" + s + "'";
+        }
+        return "''";
     }
 
     static String realFilename(int nodeAddr, String filename) {
