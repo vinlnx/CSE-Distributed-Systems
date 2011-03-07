@@ -333,7 +333,7 @@ public abstract class Node {
     final public void logSynopticEvent(String eventStr) {
         String eventStrNoded = "node:" + toSynopticString() + " USER-EVENT "
                 + eventStr;
-        manager.logEvent(addr, eventStrNoded);
+        manager.logEvent(this, eventStrNoded);
     }
 
 }
