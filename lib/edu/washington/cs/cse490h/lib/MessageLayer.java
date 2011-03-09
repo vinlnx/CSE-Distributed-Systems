@@ -26,6 +26,7 @@ import edu.washington.cs.cse490h.lib.Manager.FailureLvl;
  *  -n --nodeClass=<string>                           - Node class to use [default ]
  *  --routerHostname=<string>                         - Router hostname [default localhost]
  *  --routerPort=<int>                                - Router port [default -1]
+ *  -a --nodeAddr=<int>                               - Node address [default -1]
  *  -t --timestep=<long>                              - Time step, in ms [default 1000]
  *  -r --seed=<long>                                  - Random seed
  *  -c --commandFile=<string>                         - Command file [default ]
@@ -44,7 +45,7 @@ public class MessageLayer {
 	/**
 	 * The current version.
 	 */
-	public static final String versionString = "v0.2";
+	public static final String versionString = "v1.0";
 
 	////////////////////////////////////////////////////
 	/**
@@ -94,6 +95,9 @@ public class MessageLayer {
 	@Option(value="Router port", aliases={"-router-port"})
 	// TODO: specify a sane default    
 	public static int routerPort = -1;
+	
+	@Option(value="-a Node address", aliases={"-node-address"}) 
+	public static int nodeAddr = -1;
 
 	/**
 	 * Time step
@@ -267,9 +271,16 @@ public class MessageLayer {
 
 
 			} else { //emulate
-				if (routerHostname == "" || routerPort == -1) {
-					printError("For an emulation you must specify router hostname/port");
-					return;
+				if (replayInputFilename.equals("")) {
+					if (routerHostname == "" || routerPort == -1) {
+						printError("For an emulation without replay, you must specify router hostname/port");
+						return;
+					}
+
+					if (nodeAddr == -1) {
+						printError("For an emulation without replay, you must specify a node address");
+						return;
+					}
 				}
 
 				if (replayOutputFilename.equals("") && replayInputFilename.equals("")) {
@@ -285,9 +296,9 @@ public class MessageLayer {
 
 				try {
 					if (!commandFile.equals("")) {
-						manager = new Emulator(nodeImpl, routerHostname, routerPort, failureLvl, seed, timestep, replayOutputFilename, replayInputFilename, commandFile);
+						manager = new Emulator(nodeImpl, nodeAddr, routerHostname, routerPort, failureLvl, seed, timestep, replayOutputFilename, replayInputFilename, commandFile);
 					} else {
-						manager = new Emulator(nodeImpl, routerHostname, routerPort, failureLvl, seed, timestep, replayOutputFilename, replayInputFilename);
+						manager = new Emulator(nodeImpl, nodeAddr, routerHostname, routerPort, failureLvl, seed, timestep, replayOutputFilename, replayInputFilename);
 					}
 				} catch(UnknownHostException e) {
 					printError("Router host name is unkown! Exception: " + e);

@@ -69,8 +69,6 @@ public class Router {
 
 				if (port < 1024) {
 					System.err.println("Router: Shouldn't happen! Illegal port: " + port);
-					nodeSocket.getOutputStream().write(Manager.BROADCAST_ADDRESS);
-					nodeSocket.getOutputStream().flush();
 					nodeSocket.close();
 				} else {
 					NodeContainer old = portConflict(ipAddress, port);
@@ -79,24 +77,15 @@ public class Router {
 					}
 
 					// find a virtual address to assign to the new node
-					int address = freeAddr();
+					int address = nodeSocket.getInputStream().read();
+					
+					// Disable Nagle
+					nodeSocket.setTcpNoDelay(true);
 
-					if(address == -1) {
-						System.err.println("Router: out of addresses");
-						nodeSocket.getOutputStream().write(Manager.BROADCAST_ADDRESS);
-						nodeSocket.getOutputStream().flush();
-						nodeSocket.close();
-					} else {
-						//Disable Nagle
-						nodeSocket.setTcpNoDelay(true);
+					System.out.println("Connecting to " + ipAddress + ":" + port + " with addr: " + address);
 
-						System.out.println("Connecting to " + ipAddress + ":" + port + " Assigning addr: " + address);
-						nodeSocket.getOutputStream().write(address);
-						nodeSocket.getOutputStream().flush();
-
-						EmulatedNode newNode = new EmulatedNode(this, nodeSocket, address, ipAddress, port);
-						nodeJoin(address, newNode);
-					}
+					EmulatedNode newNode = new EmulatedNode(this, nodeSocket, address, ipAddress, port);
+					nodeJoin(address, newNode);
 				}
 			}catch(IOException e) {
 				e.printStackTrace();
@@ -139,25 +128,6 @@ public class Router {
 		} else {
 			emulatedNodes.put(address, new NodeContainer(newNode));
 		}
-	}
-
-	/**
-	 * Gets the next available address.
-	 *
-	 * Even without locking, this guarantees the address is free since joins are
-	 * only handled in this thread. The returned address is not guaranteed to be
-	 * the lowest free address however
-	 *
-	 * @return The next available address, or -1 if there are no more free
-	 *         addresses
-	 */
-	private int freeAddr() {
-		for (int i = 0; i < Manager.BROADCAST_ADDRESS; i++) {
-			if (!emulatedNodes.containsKey(i) || !emulatedNodes.get(i).isUp()) {
-				return i;
-			}
-		}
-		return -1;
 	}
 
 	/**

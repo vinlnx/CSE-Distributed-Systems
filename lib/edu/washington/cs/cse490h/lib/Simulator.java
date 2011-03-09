@@ -58,11 +58,6 @@ public class Simulator extends Manager {
 
         setParser(new SimulationCommandsParser());
 
-        if (seed == null) {
-            this.seed = System.currentTimeMillis();
-        } else {
-            this.seed = seed;
-        }
         System.out.println("Starting simulation with seed: " + this.seed);
         Utility.randNumGen = new Random(this.seed);
 

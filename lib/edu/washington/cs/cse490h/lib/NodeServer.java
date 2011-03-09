@@ -23,10 +23,6 @@ public class NodeServer implements Runnable {
 	private boolean gotFIN;
 	private boolean finished;
 
-	protected int getAddress() {
-		return address;
-	}
-
 	/**
 	 * Creates a new NodeServer.
 	 * 
@@ -34,12 +30,14 @@ public class NodeServer implements Runnable {
 	 *            The name of the machine on which the router resides
 	 * @param port
 	 *            The port on which the router is listening
+	 * @param nodeAddr
+	 *            The address of the associated node
 	 * @param parent
 	 *            The emulator that this server is associated to
 	 * @throws IOException
 	 *             If there is a problem creating the socket
 	 */
-	public NodeServer(String name, int port, Emulator parent) throws IOException{
+	public NodeServer(String name, int port, int nodeAddr, Emulator parent) throws IOException{
 		socket = new Socket(name, port);
 		packetsReceived = new ArrayList<Packet>();
 		in = socket.getInputStream();
@@ -47,13 +45,13 @@ public class NodeServer implements Runnable {
 		gotFIN = false;
 		this.parent = parent;
 		finished = false;
-
-		address = in.read();
-
-		if(address != Manager.BROADCAST_ADDRESS) {
-			Thread t = new Thread(this);
-			t.start();
-		}
+		
+		address = nodeAddr;
+		out.write(nodeAddr);
+		out.flush();
+		
+		Thread t = new Thread(this);
+		t.start();
 	}
 
 	public void run() {
@@ -77,7 +75,7 @@ public class NodeServer implements Runnable {
 			}
 		}catch(IOException e) {
 			System.err.println("Encountered IOException when trying to receive packet.");
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 
 		try {
@@ -117,7 +115,7 @@ public class NodeServer implements Runnable {
 			out.flush();
 		} catch (IOException e) {
 			finished = true;
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 	}
 
@@ -166,7 +164,7 @@ public class NodeServer implements Runnable {
 			send(fin.pack());
 		} catch (IOException e) {
 			System.err.println("Error while sending back packets.");
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 
 		packetsReceived.clear();
@@ -179,7 +177,7 @@ public class NodeServer implements Runnable {
 			socket.close();
 		} catch (IOException e) {
 			System.err.println("Error while closing socket!");
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 	}
 }

@@ -28,7 +28,7 @@ public class SynopticLogger {
 			this.writer = new BufferedWriter(new FileWriter(filename));
 		} catch (IOException e) {
 			System.out.println("Warning: unable to open logfile '" + this.filename+ "' for writing.");
-			e.printStackTrace();
+			//e.printStackTrace();
 			System.out.println("...continuing");
 		}
 	}

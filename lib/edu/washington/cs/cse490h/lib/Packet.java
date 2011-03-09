@@ -245,7 +245,7 @@ public class Packet {
 
 			return new Packet(dest, src, protocol, flags, payload);
 		}catch(Exception e) {
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 		throw new CorruptPacketException();
 	}

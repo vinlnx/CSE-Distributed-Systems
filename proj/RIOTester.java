@@ -21,7 +21,8 @@ public class RIOTester extends RIONode {
 	private Random randNumGen;
 	private int numFinished;
 
-	public static int NUM_NODES = 10;
+	public static int NUM_NODES = 3;
+	public static int NUM_DELIVERIES = 20;
 
 	private boolean failed = false;
 	
@@ -94,6 +95,19 @@ public class RIOTester extends RIONode {
 	public void correctReceive(int from, int i) {
 		logOutput("Correctly Received " + i + " from " + from);
 		receivedNums.put(from, i);
+		
+		for (int j = 0; j < NUM_NODES ; ++j) {
+			if (!receivedNums.containsKey(j)) {
+				return;
+			}
+			if (receivedNums.get(j) != NUM_DELIVERIES) {
+				return;
+			}
+		}
+		
+		// We're received everything!
+		// Stay up to make sure other nodes got our messages
+		System.out.println("GOT EVERYTHING!\n" + this.toString());
 	}
 
 	/**
@@ -129,8 +143,8 @@ public class RIOTester extends RIONode {
 			if (next == -1) {
 				doAgain = true;
 			}
-			if (next == 101) {
-				// We just sent 100 to this destination
+			if (next == NUM_DELIVERIES + 1) {
+				// We just sent everything to this destination
 				nextNum.put(destAddr, -1);
 				if (++numFinished == RIOTester.NUM_NODES) {
 					// If we are finished with everything then stop and don't
