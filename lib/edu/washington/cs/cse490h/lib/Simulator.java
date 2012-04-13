@@ -30,7 +30,7 @@ public class Simulator extends Manager {
 
     private final SynopticLogger synTotalOrderLogger = new SynopticLogger();
 
-    private HashSet<Timeout> canceledTimeouts;
+    private HashSet<Timeout> currentTimeouts;
 
     /**
      * Base constructor for the Simulator. Does most of the work, but the
@@ -324,7 +324,14 @@ public class Simulator extends Manager {
             while (iter.hasNext()) {
                 Timeout to = iter.next();
                 if (to.node.addr == node) {
-                    canceledTimeouts.add(to);
+                	iter.remove();
+                }
+            }
+            iter = currentTimeouts.iterator();
+            while (iter.hasNext()) {
+                Timeout to = iter.next();
+                if (to.node.addr == node) {
+                	iter.remove();
                 }
             }
         }
@@ -566,11 +573,14 @@ public class Simulator extends Manager {
      *            The list of the current round's events that we should add to
      */
     private void checkTimeouts(ArrayList<Event> currentRoundEvents) {
+    	currentTimeouts = new HashSet<Timeout>();
+    	
         Iterator<Timeout> iter = waitingTOs.iterator();
         while (iter.hasNext()) {
             Timeout to = iter.next();
             if (now() >= to.fireTime) {
                 iter.remove();
+                currentTimeouts.add(to);
                 currentRoundEvents.add(Event.getTimeout(to));
             }
         }
@@ -585,8 +595,6 @@ public class Simulator extends Manager {
      *            The list of the current round's events that we should add to
      */
     private void executeEvents(ArrayList<Event> currentRoundEvents) {
-        canceledTimeouts = new HashSet<Timeout>();
-
         if (userControl == FailureLvl.EVERYTHING) {
             boolean doAgain = false;
             do {
@@ -639,8 +647,6 @@ public class Simulator extends Manager {
                 handleEvent(ev);
             }
         }
-
-        waitingTOs.removeAll(canceledTimeouts);
     }
 
     /**
@@ -674,7 +680,7 @@ public class Simulator extends Manager {
             deliverPkt(ev.p);
             break;
         case TIMEOUT:
-            if (canceledTimeouts.contains(ev.to)) {
+            if (!currentTimeouts.contains(ev.to)) {
                 break;
             }
 
